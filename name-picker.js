@@ -31,14 +31,15 @@
     const select = document.getElementById('currentUser');
     if (!select) return;
 
-    let hint = select.parentElement.querySelector('.name-choice-hint');
-    if (!hint) {
-      hint = document.createElement('span');
-      hint.className = 'name-choice-hint';
-      hint.textContent = 'Vælges én gang og huskes på enheden';
-      select.parentElement.appendChild(hint);
-    }
+    const picker = select.parentElement;
+    picker.classList.add('compact-name-picker');
 
+    picker.querySelector('.name-choice-hint')?.remove();
+    [...picker.childNodes].forEach((node) => {
+      if (node.nodeType === Node.TEXT_NODE) node.remove();
+    });
+
+    select.setAttribute('aria-label', 'Vælg navn');
     select.value = currentUser || '';
     select.addEventListener('change', () => {
       const name = select.value;
@@ -47,7 +48,7 @@
       localStorage.setItem(REMEMBER_KEY, name);
       localStorage.setItem('ejaps_user_v2', name);
       applyNameState();
-      window.showToast?.(`${name} er valgt og bliver husket`);
+      window.showToast?.(`${name} er valgt`);
     });
 
     const root = document.getElementById('taskRoot');
