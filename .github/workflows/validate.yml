@@ -1,0 +1,39 @@
+name: Validate app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in *.js; do
+            echo "Checking $file"
+            node --check "$file"
+          done
+      - name: Check manifest JSON
+        run: python3 -m json.tool manifest.webmanifest > /dev/null
+      - name: Check required app files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f index.html
+          test -f app-v5.js
+          test -f company-chat.js
+          test -f company-enhancements.js
+          test -f security-patch.js
+          test -f sw.js
+          test -f manifest.webmanifest
+          grep -q 'company-enhancements.js' index.html
+          grep -q 'security-patch.js' index.html
+          grep -q "ejaps-v15" sw.js
