@@ -11,11 +11,12 @@
   let seenIds = new Set();
   let firstLoad = true;
   let panelOpen = false;
+  let activityOpen = false;
+  let activityFilter = 'Alle';
   let pendingMessageId = '';
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmt = (value) => value ? new Intl.DateTimeFormat('da-DK',{dateStyle:'short',timeStyle:'short'}).format(new Date(value)) : '';
-
   function actor() { return typeof currentUser === 'string' ? currentUser : ''; }
   function code() { return typeof teamCode === 'string' ? teamCode : ''; }
 
@@ -42,48 +43,64 @@
         <button type="button" data-nav="company"><span class="nav-icon">💬</span>Firma <span id="companyUnread" class="company-unread" hidden>0</span></button>
         <button type="button" data-nav="activity"><span class="nav-icon">↻</span>Aktivitet</button>
       </nav>
+
       <section id="companyPanel" class="company-panel" hidden>
         <div class="company-shell">
-          <header class="company-header">
-            <div class="company-header-row">
-              <div><h2>Firma</h2><p>Kun E&amp;J ApS · fælles beskeder mellem Emil og Jesper</p></div>
-              <button id="companyClose" type="button" class="company-close">Luk</button>
-            </div>
-          </header>
+          <header class="company-header"><div class="company-header-row"><div><h2>Firma</h2><p>Kun E&amp;J ApS · fælles beskeder mellem Emil og Jesper</p></div><button id="companyClose" type="button" class="company-close">Luk</button></div></header>
           <div id="companyTabs" class="company-tabs"></div>
           <div id="companyChat" class="company-chat"><div class="company-empty">Henter beskeder…</div></div>
           <div class="company-note">Brug området til kunder, økonomi, idéer og beslutninger om firmaet.</div>
-          <form id="companyComposer" class="company-composer">
-            <textarea id="companyMessage" maxlength="4000" placeholder="Skriv om E&J ApS…" required></textarea>
-            <button type="submit" class="button company-send">Send</button>
-          </form>
+          <form id="companyComposer" class="company-composer"><textarea id="companyMessage" maxlength="4000" placeholder="Skriv om E&J ApS…" required></textarea><button type="submit" class="button company-send">Send</button></form>
         </div>
       </section>
-      <dialog id="messageTaskDialog" class="task-from-message-dialog">
-        <div class="task-from-message-card">
-          <h3>Lav beskeden til en opgave</h3>
-          <p id="messageTaskPreview"></p>
-          <div class="task-from-message-grid">
-            <label>Kategori<select id="messageTaskCategory"></select></label>
-            <label>Ansvarlig<select id="messageTaskOwner"><option>Fælles</option><option>Emil</option><option>Jesper</option></select></label>
-            <label>Prioritet<select id="messageTaskPriority"><option>Høj</option><option selected>Mellem</option><option>Lav</option></select></label>
+
+      <section id="activityPanel" class="activity-page" hidden>
+        <div class="activity-shell">
+          <header class="activity-header"><div><h2>Aktivitet</h2><p>Alt der er ændret i E&amp;J ApS — helt adskilt fra I dag og Opgaver.</p></div><button id="activityClose" type="button" class="company-close">Luk</button></header>
+          <div class="activity-toolbar">
+            <div id="activityFilters" class="activity-filters"><button type="button" class="active" data-activity-filter="Alle">Alle</button><button type="button" data-activity-filter="Emil">Emil</button><button type="button" data-activity-filter="Jesper">Jesper</button></div>
+            <div class="activity-tools"><button id="activityRefresh" type="button" class="button">Opdatér</button><button id="activityClearPage" type="button" class="button danger-ghost">Ryd log</button></div>
           </div>
-          <div class="task-from-message-actions">
-            <button id="messageTaskCancel" type="button" class="button">Annuller</button>
-            <button id="messageTaskCreate" type="button" class="button primary">Opret opgave</button>
-          </div>
+          <div id="activityPageSummary" class="activity-summary"></div>
+          <div id="activityPageLog" class="activity-page-log"><div class="company-empty">Henter aktivitet…</div></div>
         </div>
-      </dialog>`);
+      </section>
+
+      <dialog id="messageTaskDialog" class="task-from-message-dialog"><div class="task-from-message-card"><h3>Lav beskeden til en opgave</h3><p id="messageTaskPreview"></p><div class="task-from-message-grid"><label>Kategori<select id="messageTaskCategory"></select></label><label>Ansvarlig<select id="messageTaskOwner"><option>Fælles</option><option>Emil</option><option>Jesper</option></select></label><label>Prioritet<select id="messageTaskPriority"><option>Høj</option><option selected>Mellem</option><option>Lav</option></select></label></div><div class="task-from-message-actions"><button id="messageTaskCancel" type="button" class="button">Annuller</button><button id="messageTaskCreate" type="button" class="button primary">Opret opgave</button></div></div></dialog>`);
     document.getElementById('companyTabs').innerHTML = CHANNELS.map(c => `<button type="button" class="company-tab ${c===activeChannel?'active':''}" data-channel="${esc(c)}">${esc(c)}</button>`).join('');
     document.getElementById('messageTaskCategory').innerHTML = CATEGORY_OPTIONS.map(c=>`<option>${esc(c)}</option>`).join('');
+
+    const oldLog = document.getElementById('activityLog');
+    const oldActivityCard = oldLog?.closest('article');
+    if (oldActivityCard) oldActivityCard.hidden = true;
+    const oldDetails = oldLog?.closest('details');
+    const oldSummary = oldDetails?.querySelector(':scope > summary');
+    if (oldSummary && /aktivitet/i.test(oldSummary.textContent || '')) oldSummary.textContent = 'Status og milepæle';
   }
 
   function setNav(name) { document.querySelectorAll('#bottomNav [data-nav]').forEach(b=>b.classList.toggle('active',b.dataset.nav===name)); }
-  function openCompany() { panelOpen=true;document.getElementById('companyPanel').hidden=false;setNav('company');clearUnread();loadMessages(true);setTimeout(()=>document.getElementById('companyMessage')?.focus(),100); }
-  function closeCompany(nav='tasks') { panelOpen=false;document.getElementById('companyPanel').hidden=true;setNav(nav); }
+  function hidePanels() { panelOpen=false;activityOpen=false;document.getElementById('companyPanel').hidden=true;document.getElementById('activityPanel').hidden=true; }
+  function openCompany() { hidePanels();panelOpen=true;document.getElementById('companyPanel').hidden=false;setNav('company');clearUnread();loadMessages(true);setTimeout(()=>document.getElementById('companyMessage')?.focus(),100); }
+  function closeCompany(nav='tasks') { hidePanels();setNav(nav); }
+  function openActivity() { hidePanels();activityOpen=true;document.getElementById('activityPanel').hidden=false;setNav('activity');renderActivityPage(); }
   function clearUnread() { const badge=document.getElementById('companyUnread');badge.hidden=true;badge.textContent='0'; }
   function addUnread(count=1) { if(panelOpen)return;const badge=document.getElementById('companyUnread');const next=Number(badge.textContent||0)+count;badge.textContent=String(next);badge.hidden=false; }
   function renderTabs() { document.querySelectorAll('.company-tab').forEach(b=>b.classList.toggle('active',b.dataset.channel===activeChannel)); }
+
+  function renderActivityPage() {
+    const host=document.getElementById('activityPageLog');
+    const summary=document.getElementById('activityPageSummary');
+    if(!host||!summary)return;
+    const all=(typeof state!=='undefined' && Array.isArray(state.activities)) ? state.activities : [];
+    const list=activityFilter==='Alle'?all:all.filter(a=>a.actor===activityFilter);
+    const todayKey=new Date().toDateString();
+    const today=all.filter(a=>new Date(a.created_at).toDateString()===todayKey).length;
+    const emil=all.filter(a=>a.actor==='Emil').length;
+    const jesper=all.filter(a=>a.actor==='Jesper').length;
+    summary.innerHTML=`<div><span>I dag</span><strong>${today}</strong></div><div><span>Emil</span><strong>${emil}</strong></div><div><span>Jesper</span><strong>${jesper}</strong></div>`;
+    if(!list.length){host.innerHTML='<div class="company-empty"><strong>Ingen aktivitet endnu.</strong><br>Når noget ændres i appen, vises det her.</div>';return}
+    host.innerHTML=list.map(a=>`<article class="activity-page-item"><div class="activity-avatar">${esc((a.actor||'?').slice(0,1))}</div><div><strong>${esc(typeof activityText==='function'?activityText(a):`${a.actor}: ${a.detail||a.action||''}`)}</strong><time>${esc(typeof formatDateTime==='function'?formatDateTime(a.created_at):fmt(a.created_at))}</time></div></article>`).join('');
+  }
 
   function renderMessages() {
     const host=document.getElementById('companyChat');
@@ -98,7 +115,6 @@
 
   async function sendMessage(text,channel=activeChannel,sourceId=null) { if(!actor()){window.showToast?.('Vælg først Emil eller Jesper under Navn');return false}const body={workspace_id:WORKSPACE_ID,channel,author:actor(),body:text};if(sourceId)body.source_message_id=sourceId;await rest('company_messages',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(body)});await loadMessages(true);return true; }
   async function deleteMessage(id) { await rest(`company_messages?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${WORKSPACE_ID}`,{method:'DELETE'});await loadMessages(true); }
-
   function openTaskDialog(id) { const message=messages.find(m=>m.id===id);if(!message)return;if(!actor()){window.showToast?.('Vælg først Navn');return}pendingMessageId=id;document.getElementById('messageTaskPreview').textContent=message.body;document.getElementById('messageTaskOwner').value='Fælles';document.getElementById('messageTaskPriority').value=message.channel==='Vigtigt'?'Høj':'Mellem';document.getElementById('messageTaskDialog').showModal(); }
 
   async function createTaskFromMessage() {
@@ -108,13 +124,17 @@
   }
 
   function bind() {
-    document.getElementById('bottomNav').addEventListener('click',e=>{const b=e.target.closest('[data-nav]');if(!b)return;const nav=b.dataset.nav;if(nav==='company')return openCompany();closeCompany(nav);if(nav==='today'){document.getElementById('todayModeBtn')?.click();document.getElementById('nextActions')?.scrollIntoView({behavior:'smooth',block:'start'})}if(nav==='tasks'){document.getElementById('allModeBtn')?.click();document.getElementById('taskRoot')?.scrollIntoView({behavior:'smooth',block:'start'})}if(nav==='activity'){const log=document.getElementById('activityLog');const details=log?.closest('details');if(details)details.open=true;log?.scrollIntoView({behavior:'smooth',block:'center'})}});
+    document.getElementById('bottomNav').addEventListener('click',e=>{const b=e.target.closest('[data-nav]');if(!b)return;const nav=b.dataset.nav;if(nav==='company')return openCompany();if(nav==='activity')return openActivity();closeCompany(nav);if(nav==='today'){document.getElementById('todayModeBtn')?.click();document.getElementById('nextActions')?.scrollIntoView({behavior:'smooth',block:'start'})}if(nav==='tasks'){document.getElementById('allModeBtn')?.click();document.getElementById('taskRoot')?.scrollIntoView({behavior:'smooth',block:'start'})}});
     document.getElementById('companyClose').onclick=()=>closeCompany('tasks');
+    document.getElementById('activityClose').onclick=()=>closeCompany('tasks');
+    document.getElementById('activityRefresh').onclick=async()=>{if(typeof loadSnapshot==='function')await loadSnapshot(true);renderActivityPage()};
+    document.getElementById('activityClearPage').onclick=()=>{const legacy=document.getElementById('clearActivityBtn');if(legacy)legacy.click();setTimeout(renderActivityPage,500)};
+    document.getElementById('activityFilters').onclick=e=>{const b=e.target.closest('[data-activity-filter]');if(!b)return;activityFilter=b.dataset.activityFilter;document.querySelectorAll('[data-activity-filter]').forEach(x=>x.classList.toggle('active',x===b));renderActivityPage()};
     document.getElementById('companyTabs').onclick=e=>{const b=e.target.closest('[data-channel]');if(!b)return;activeChannel=b.dataset.channel;localStorage.setItem('ejaps_company_channel_v1',activeChannel);renderTabs();renderMessages()};
     document.getElementById('companyComposer').onsubmit=async e=>{e.preventDefault();const input=document.getElementById('companyMessage'),text=input.value.trim();if(!text)return;try{if(await sendMessage(text)){input.value='';input.focus()}}catch(error){window.showToast?.(error.message||'Beskeden kunne ikke sendes')}};
     document.getElementById('companyChat').onclick=async e=>{const button=e.target.closest('[data-msg-action]');if(!button)return;const row=button.closest('[data-message-id]'),id=row.dataset.messageId,msg=messages.find(m=>m.id===id);if(!msg)return;try{if(button.dataset.msgAction==='decision'){if(msg.channel==='Beslutninger')return window.showToast?.('Beskeden er allerede en beslutning');await sendMessage(msg.body,'Beslutninger',id);window.showToast?.('Gemt under Beslutninger')}if(button.dataset.msgAction==='task')openTaskDialog(id);if(button.dataset.msgAction==='delete'&&confirm('Slet beskeden?')){await deleteMessage(id);window.showToast?.('Beskeden er slettet')}}catch(error){window.showToast?.(error.message||'Handlingen kunne ikke gennemføres')}};
     document.getElementById('messageTaskCancel').onclick=()=>{pendingMessageId='';document.getElementById('messageTaskDialog').close()};document.getElementById('messageTaskCreate').onclick=createTaskFromMessage;
   }
 
-  document.addEventListener('DOMContentLoaded',()=>{buildUi();bind();loadMessages(false);if(location.hash.toLowerCase()==='#firma')openCompany();window.addEventListener('hashchange',()=>{if(location.hash.toLowerCase()==='#firma')openCompany()});setInterval(()=>loadMessages(false),5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadMessages(false)})});
+  document.addEventListener('DOMContentLoaded',()=>{buildUi();bind();loadMessages(false);if(location.hash.toLowerCase()==='#firma')openCompany();if(location.hash.toLowerCase()==='#aktivitet')openActivity();window.addEventListener('hashchange',()=>{if(location.hash.toLowerCase()==='#firma')openCompany();if(location.hash.toLowerCase()==='#aktivitet')openActivity()});setInterval(()=>{loadMessages(false);if(activityOpen)renderActivityPage()},5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden){loadMessages(false);if(activityOpen)renderActivityPage()}})});
 })();
