@@ -18,7 +18,9 @@
   function cardOwner(card){const badges=[...card.querySelectorAll('.task-badges .badge')].map(x=>x.textContent.trim());return badges.find(x=>['Emil','Jesper','Fælles'].includes(x))||'Fælles'}
   function cardPriority(card){const badges=[...card.querySelectorAll('.task-badges .badge')].map(x=>x.textContent.trim());return badges.find(x=>['Høj','Mellem','Lav'].includes(x))||'Mellem'}
   function cardStatus(card){const badges=[...card.querySelectorAll('.task-badges .badge')].map(x=>x.textContent.trim());return badges.find(x=>['Ikke startet','I gang','Afventer','Færdig','Blokeret'].includes(x))||'Ikke startet'}
-  function cardDate(card){const value=card.querySelector('[data-field="deadline_date"]')?.value;return value||''}
+  function cardDate(card){return card.querySelector('[data-field="deadline_date"]')?.value||''}
+  function showDialog(dlg){if(!dlg)return false;if(typeof dlg.showModal==='function')dlg.showModal();else dlg.setAttribute('open','');return true}
+  function closeDialog(dlg){if(!dlg)return;if(typeof dlg.close==='function')dlg.close();else dlg.removeAttribute('open')}
   function score(card){
     const status=cardStatus(card); if(status==='Færdig') return -999;
     let s=0; const p=cardPriority(card); if(p==='Høj')s+=50;else if(p==='Mellem')s+=20;
@@ -39,7 +41,7 @@
   }
   function applyTodayMode(on){
     const today=new Date().toISOString().slice(0,10); let visible=0;
-    document.querySelectorAll('.category').forEach(section=>{let count=0;section.querySelectorAll('.task-card').forEach(card=>{const due=cardDate(card),status=cardStatus(card),show=!on||(status!=='Færdig'&&(due===today||(due&&due<today)||status==='I gang'));card.classList.toggle('today-hidden',!show);if(show)count++});section.classList.toggle('today-hidden',on&&count===0);visible+=count});
+    document.querySelectorAll('.category').forEach(section=>{let count=0;section.querySelectorAll('.task-card').forEach(card=>{const due=cardDate(card),status=cardStatus(card),show=!on||(status!=='Færdig'&&(due===today||(due&&due<today)||status==='I gang'||status==='Afventer'||status==='Blokeret'));card.classList.toggle('today-hidden',!show);if(show)count++});section.classList.toggle('today-hidden',on&&count===0);visible+=count});
     document.getElementById('todayModeBtn')?.classList.toggle('primary',on);
     document.getElementById('allModeBtn')?.classList.toggle('primary',!on);
     const empty=document.getElementById('todayEmpty'); if(empty)empty.hidden=!(on&&visible===0);
@@ -55,25 +57,17 @@
     const dlg=document.getElementById('completionDialog'); if(!dlg)return false;
     const id=card.dataset.taskId,title=cardTitle(card); completionQueue.set(id,{card,checkbox});
     document.getElementById('completionTaskTitle').textContent=title;
-    document.getElementById('completionNote').value=''; document.getElementById('completionLink').value=''; dlg.dataset.taskId=id; dlg.showModal(); return true;
+    document.getElementById('completionNote').value=''; document.getElementById('completionLink').value=''; dlg.dataset.taskId=id; return showDialog(dlg);
   }
   document.addEventListener('DOMContentLoaded',()=>{
     const root=document.getElementById('taskRoot'); if(!root)return;
     const observer=new MutationObserver(()=>{renderNext();renderConfidence();showMilestoneIfNeeded();applyTodayMode(sessionStorage.getItem('ejaps_today_mode')==='1')}); observer.observe(root,{childList:true,subtree:true});
-    root.addEventListener('click',e=>{const check=e.target.closest('[data-action="toggle"]');if(check&&check.checked){const card=check.closest('.task-card');if(openCompletionDialog(card,check)){e.preventDefault();e.stopImmediatePropagation();check.checked=false;return}}
-    },true);
+    root.addEventListener('change',e=>{const check=e.target.closest('[data-action="toggle"]');if(check&&check.checked){const card=check.closest('.task-card');if(openCompletionDialog(card,check)){e.preventDefault();e.stopImmediatePropagation();check.checked=false}}},true);
     document.getElementById('nextActions')?.addEventListener('click',e=>{const b=e.target.closest('[data-focus-id]');if(!b)return;const card=document.querySelector(`.task-card[data-task-id="${CSS.escape(b.dataset.focusId)}"]`);if(card){card.scrollIntoView({behavior:'smooth',block:'center'});card.classList.add('milestone-pop');setTimeout(()=>card.classList.remove('milestone-pop'),700)}});
     document.getElementById('todayModeBtn')?.addEventListener('click',()=>applyTodayMode(true)); document.getElementById('allModeBtn')?.addEventListener('click',()=>applyTodayMode(false));
-    document.getElementById('completionCancel')?.addEventListener('click',()=>{const id=document.getElementById('completionDialog').dataset.taskId,entry=completionQueue.get(id);if(entry)entry.checkbox.checked=false;completionQueue.delete(id);document.getElementById('completionDialog').close()});
-    document.getElementById('completionSave')?.addEventListener('click',async()=>{const dlg=document.getElementById('completionDialog'),id=dlg.dataset.taskId,entry=completionQueue.get(id);if(!entry)return;const note=document.getElementById('completionNote').value.trim(),link=document.getElementById('completionLink').value.trim();if(!note){window.showToast?.('Skriv kort hvad der blev gjort');return}try{await request(`tasks/${id}`,{method:'PATCH',body:{status:'Færdig',completion_note:note,completion_link:link,actor:currentUser}});dlg.close();completionQueue.delete(id);await loadSnapshot(true);window.showToast?.('Opgaven er færdig og dokumenteret')}catch(err){window.showToast?.(err.message||'Kunne ikke gemme dokumentationen')}});
-    document.getElementById('completionSkip')?.addEventListener('click',async()=>{const dlg=document.getElementById('completionDialog'),id=dlg.dataset.taskId;try{await request(`tasks/${id}`,{method:'PATCH',body:{status:'Færdig',actor:currentUser}});dlg.close();completionQueue.delete(id);await loadSnapshot(true)}catch(err){window.showToast?.(err.message||'Kunne ikke markere opgaven færdig')}});
+    document.getElementById('completionCancel')?.addEventListener('click',()=>{const dlg=document.getElementById('completionDialog'),id=dlg.dataset.taskId,entry=completionQueue.get(id);if(entry)entry.checkbox.checked=false;completionQueue.delete(id);closeDialog(dlg)});
+    document.getElementById('completionSave')?.addEventListener('click',async()=>{const dlg=document.getElementById('completionDialog'),id=dlg.dataset.taskId,entry=completionQueue.get(id);if(!entry)return;const note=document.getElementById('completionNote').value.trim(),link=document.getElementById('completionLink').value.trim();if(!note){window.showToast?.('Skriv kort hvad der blev gjort');return}try{await request(`tasks/${id}`,{method:'PATCH',body:{status:'Færdig',completion_note:note,completion_link:link,actor:currentUser}});closeDialog(dlg);completionQueue.delete(id);await loadSnapshot(true);window.showToast?.('Opgaven er færdig og dokumenteret')}catch(err){window.showToast?.(err.message||'Kunne ikke gemme dokumentationen')}});
+    document.getElementById('completionSkip')?.addEventListener('click',async()=>{const dlg=document.getElementById('completionDialog'),id=dlg.dataset.taskId;try{await request(`tasks/${id}`,{method:'PATCH',body:{status:'Færdig',actor:currentUser}});closeDialog(dlg);completionQueue.delete(id);await loadSnapshot(true)}catch(err){window.showToast?.(err.message||'Kunne ikke markere opgaven færdig')}});
     setTimeout(()=>{renderNext();renderConfidence();showMilestoneIfNeeded();applyTodayMode(sessionStorage.getItem('ejaps_today_mode')==='1')},700);
   });
-})();
-
-(() => {
-  const css=document.createElement('link');
-  css.rel='stylesheet';css.href='company-chat.css?v=10';document.head.appendChild(css);
-  const script=document.createElement('script');
-  script.src='company-chat.js?v=10';script.defer=true;document.body.appendChild(script);
 })();
