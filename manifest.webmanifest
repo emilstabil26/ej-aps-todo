@@ -2,20 +2,20 @@
   "name": "E&J ApS To Do",
   "short_name": "E&J To Do",
   "description": "Fælles opstarts- og opgavestyring for E&J ApS",
-  "start_url": "./?v=7",
+  "start_url": "./?v=15",
   "scope": "./",
   "display": "standalone",
   "background_color": "#050505",
   "theme_color": "#050505",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "icon-192.png?v=15",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.webp",
+      "src": "icon-512.webp?v=15",
       "sizes": "512x512",
       "type": "image/webp",
       "purpose": "any maskable"
