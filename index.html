@@ -7,73 +7,34 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="E&J To Do">
-  <link rel="manifest" href="manifest.webmanifest?v=12">
-  <link rel="icon" href="icon-192.png?v=12" type="image/png" sizes="192x192">
-  <link rel="apple-touch-icon" href="icon-192.png?v=12" sizes="192x192">
-  <link rel="stylesheet" href="styles.css?v=12">
-  <link rel="stylesheet" href="simple.css?v=12">
-  <link rel="stylesheet" href="brand.css?v=12">
-  <link rel="stylesheet" href="task-help.css?v=12">
-  <link rel="stylesheet" href="focus.css?v=12">
-  <link rel="stylesheet" href="company-chat.css?v=12">
+  <link rel="manifest" href="manifest.webmanifest?v=13">
+  <link rel="icon" href="icon-192.png?v=13" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icon-192.png?v=13" sizes="192x192">
+  <link rel="stylesheet" href="styles.css?v=13">
+  <link rel="stylesheet" href="simple.css?v=13">
+  <link rel="stylesheet" href="brand.css?v=13">
+  <link rel="stylesheet" href="task-help.css?v=13">
+  <link rel="stylesheet" href="focus.css?v=13">
+  <link rel="stylesheet" href="company-chat.css?v=13">
   <title>E&J ApS To Do</title>
 </head>
 <body>
-  <header class="app-header">
-    <div class="wrap header-row">
-      <div class="app-brand">
-        <img class="app-brand-logo" src="icon-192.png?v=12" alt="E&J ApS-logo">
-        <div class="app-brand-copy">
-          <span class="app-brand-name">E&amp;J ApS</span>
-          <h1>To Do</h1>
-          <p>Total Byg &amp; Enterprise</p>
-        </div>
-      </div>
-      <div class="header-actions">
-        <label class="user-picker"><select id="currentUser" aria-label="Vælg navn"><option value="">Navn?</option><option value="Emil">Emil</option><option value="Jesper">Jesper</option></select></label>
-        <button id="installBtn" class="button secondary">Installér app</button>
-      </div>
-    </div>
-  </header>
-
+  <header class="app-header"><div class="wrap header-row"><div class="app-brand"><img class="app-brand-logo" src="icon-192.png?v=13" alt="E&J ApS-logo"><div class="app-brand-copy"><span class="app-brand-name">E&amp;J ApS</span><h1>To Do</h1><p>Total Byg &amp; Enterprise</p></div></div><div class="header-actions"><label class="user-picker"><select id="currentUser" aria-label="Vælg navn"><option value="">Navn?</option><option value="Emil">Emil</option><option value="Jesper">Jesper</option></select></label><button id="installBtn" class="button secondary">Installér app</button></div></div></header>
   <main class="wrap">
     <div id="storageBanner" class="storage-banner loading"><strong>Henter de 52 punkter…</strong> Forbinder til den fælles liste.</div>
-
-    <section class="simple-dashboard" aria-label="Fremdrift">
-      <article class="simple-progress"><div class="simple-progress-top"><span>Samlet fremdrift</span><strong id="progressPercent">0%</strong></div><div class="progress-track"><div id="progressBar" class="progress-bar"></div></div></article>
-      <div class="simple-counts">
-        <article class="simple-count" data-count-filter="all" aria-label="Vis alle opgaver"><span>I alt</span><strong id="totalCount">0</strong></article>
-        <article class="simple-count" data-count-filter="done" aria-label="Vis færdige opgaver"><span>Færdige</span><strong id="doneCount">0</strong></article>
-        <article class="simple-count" data-count-filter="open" aria-label="Vis åbne opgaver"><span>Åbne</span><strong id="openCount">0</strong></article>
-      </div>
-    </section>
-
+    <section class="simple-dashboard" aria-label="Fremdrift"><article class="simple-progress"><div class="simple-progress-top"><span>Samlet fremdrift</span><strong id="progressPercent">0%</strong></div><div class="progress-track"><div id="progressBar" class="progress-bar"></div></div></article><div class="simple-counts"><article class="simple-count" data-count-filter="all" aria-label="Vis alle opgaver"><span>I alt</span><strong id="totalCount">0</strong></article><article class="simple-count" data-count-filter="done" aria-label="Vis færdige opgaver"><span>Færdige</span><strong id="doneCount">0</strong></article><article class="simple-count" data-count-filter="open" aria-label="Vis åbne opgaver"><span>Åbne</span><strong id="openCount">0</strong></article></div></section>
     <section id="confidenceCard" class="confidence-card" aria-live="polite"><strong>I er i gang</strong><p>Et punkt ad gangen. Det er sådan en stor opstart bliver overskuelig.</p></section>
-
     <section class="focus-panel"><div class="focus-head"><div><h2>Hvad skal vi gøre nu?</h2><p>Appen vælger automatisk de 3 vigtigste næste opgaver ud fra status, prioritet og tidsfrist.</p></div><div class="focus-actions"><button id="allModeBtn" class="button primary">Alle opgaver</button><button id="todayModeBtn" class="button">I dag</button></div></div><div id="nextActions" class="focus-action-list"><div class="empty">Finder næste skridt…</div></div><div id="todayEmpty" class="today-empty" hidden>Ingen akutte opgaver i dag. Brug “Alle opgaver” for at se hele planen.</div></section>
-
     <section class="simple-add"><h2>Tilføj opgave</h2><div class="add-grid"><label>Opgave<input id="newTitle" placeholder="Hvad skal laves?"></label><label>Kategori<select id="newCategory"></select></label><label>Ansvarlig<select id="newOwner"><option>Fælles</option><option>Emil</option><option>Jesper</option></select></label><button id="addTaskBtn" class="button primary">Tilføj</button></div><details class="add-options"><summary>Prioritet og tidsfrist</summary><div class="advanced-grid"><label>Prioritet<select id="newPriority"><option>Høj</option><option selected>Mellem</option><option>Lav</option></select></label><label>Dato<input id="newDate" type="date"></label><label>Tid<input id="newTime" type="time" value="09:00"></label></div></details></section>
-
     <section class="simple-primary" aria-label="Søg og filtrér"><input id="searchInput" type="search" placeholder="Søg i opgaver…"><select id="ownerFilter"><option value="all">Alle ansvarlige</option><option value="Emil">Emil</option><option value="Jesper">Jesper</option><option value="Fælles">Fælles</option></select><select id="statusFilter"><option value="all">Alle statuser</option><option value="Ikke startet">Ikke startet</option><option value="I gang">I gang</option><option value="Afventer">Afventer</option><option value="Færdig">Færdig</option><option value="blocked">Blokeret</option></select><button id="expandAllBtn" class="button">Åbn alle</button><button id="collapseAllBtn" class="button">Luk alle</button></section>
-
     <details class="simple-section"><summary>Flere filtre</summary><div class="simple-section-content advanced-grid"><label>Prioritet<select id="priorityFilter"><option value="all">Alle prioriteter</option><option value="Høj">Høj</option><option value="Mellem">Mellem</option><option value="Lav">Lav</option></select></label><label>Tidsfrist<select id="deadlineFilter"><option value="all">Alle tidsfrister</option><option value="today">I dag</option><option value="week">Denne uge</option><option value="soon">Næste 3 dage</option><option value="overdue">Overskredet</option><option value="none">Uden tidsfrist</option></select></label></div></details>
-
     <div id="taskRoot"><section class="panel"><strong>Henter alle 52 opstartspunkter…</strong></section></div>
-
-    <details class="simple-section"><summary>Status, milepæle og aktivitet</summary><div class="simple-section-content"><section class="panel"><div class="panel-heading"><div><h2>Milepæle</h2><p>25 %, 50 %, 75 % og 100 % bliver markeret tydeligt, når I når dem.</p></div></div><div id="milestones" class="milestone-grid"></div></section><div class="overview-grid"><article class="panel"><div class="panel-heading"><div><h2>Ugens status</h2><p>Deadlines og afsluttede opgaver.</p></div><button id="copyWeeklyBtn" class="button">Kopiér</button></div><div id="weeklyStatus" class="weekly-status"></div></article><article class="panel"><div class="panel-heading"><div><h2>Seneste aktivitet</h2><p>Se hvad Emil og Jesper har ændret.</p></div><button id="clearActivityBtn" class="button danger-ghost">Ryd</button></div><div id="activityLog" class="activity-log"></div></article></div></div></details>
-
+    <details class="simple-section"><summary>Status og milepæle</summary><div class="simple-section-content"><section class="panel"><div class="panel-heading"><div><h2>Milepæle</h2><p>25 %, 50 %, 75 % og 100 % bliver markeret tydeligt, når I når dem.</p></div></div><div id="milestones" class="milestone-grid"></div></section><div class="overview-grid"><article class="panel"><div class="panel-heading"><div><h2>Ugens status</h2><p>Deadlines og afsluttede opgaver.</p></div><button id="copyWeeklyBtn" class="button">Kopiér</button></div><div id="weeklyStatus" class="weekly-status"></div></article><article class="panel" hidden><div class="panel-heading"><div><h2>Seneste aktivitet</h2><p>Se hvad Emil og Jesper har ændret.</p></div><button id="clearActivityBtn" class="button danger-ghost">Ryd</button></div><div id="activityLog" class="activity-log"></div></article></div></div></details>
     <details class="simple-section"><summary>Notifikationer, kalender og backup</summary><div class="simple-section-content"><div class="function-actions"><button id="notificationBtn" class="button dark">Aktivér notifikationer</button><button id="calendarAllBtn" class="button">Tilføj fælles kalender</button><button id="backupBtn" class="button">Eksportér backup</button><button id="restoreBtn" class="button">Importér backup</button><input id="restoreFile" type="file" accept="application/json" hidden></div><p class="help-text">Appen synkroniserer cirka hvert femte sekund. Notifikationer sendes ved nye fremskridt og ændringer fra den anden.</p></div></details>
   </main>
-
   <dialog id="completionDialog" class="completion-dialog"><div class="completion-dialog-card"><h2>Opgaven er løst</h2><p id="completionTaskTitle"></p><label>Hvad blev gjort?<textarea id="completionNote" rows="4" placeholder="Fx: Ejeraftalen er gennemgået og gemt i fælles mappe."></textarea></label><label>Link til dokumentation (valgfrit)<input id="completionLink" type="url" placeholder="https://…"></label><div class="completion-dialog-actions"><button id="completionCancel" type="button" class="button">Annuller</button><button id="completionSkip" type="button" class="button">Færdig uden note</button><button id="completionSave" type="button" class="button primary">Gem og markér færdig</button></div></div></dialog>
   <dialog id="installDialog"><form method="dialog" class="dialog-card"><h2>Installér E&amp;J ApS To Do</h2><p id="installHelp">Åbn browserens menu og vælg “Føj til hjemmeskærm” eller “Installér app”.</p><button class="button primary">Luk</button></form></dialog>
-
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app-v5.js?v=12" defer></script>
-  <script src="name-picker.js?v=12" defer></script>
-  <script src="simple-ui.js?v=12" defer></script>
-  <script src="task-help.js?v=12" defer></script>
-  <script src="focus.js?v=12" defer></script>
-  <script src="company-chat.js?v=12" defer></script>
+  <script src="app-v5.js?v=13" defer></script><script src="name-picker.js?v=13" defer></script><script src="simple-ui.js?v=13" defer></script><script src="task-help.js?v=13" defer></script><script src="focus.js?v=13" defer></script><script src="company-chat.js?v=13" defer></script>
 </body>
 </html>
