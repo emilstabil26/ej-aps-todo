@@ -70,3 +70,10 @@
     setTimeout(()=>{renderNext();renderConfidence();showMilestoneIfNeeded();applyTodayMode(sessionStorage.getItem('ejaps_today_mode')==='1')},700);
   });
 })();
+
+(() => {
+  const css=document.createElement('link');
+  css.rel='stylesheet';css.href='company-chat.css?v=10';document.head.appendChild(css);
+  const script=document.createElement('script');
+  script.src='company-chat.js?v=10';script.defer=true;document.body.appendChild(script);
+})();
