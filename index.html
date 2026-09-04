@@ -9,7 +9,8 @@
   <meta name="apple-mobile-web-app-title" content="EJ To Do">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="stylesheet" href="simple.css?v=6">
   <title>EJ ApS To Do</title>
 </head>
 <body>
@@ -17,11 +18,14 @@
     <div class="wrap header-row">
       <div>
         <h1>EJ ApS · To Do</h1>
-        <p>Fælles opstartsplan, ansvar, tidsfrister og fremdrift</p>
+        <p>Fælles opstartsplan</p>
       </div>
       <div class="header-actions">
         <label class="user-picker">Jeg er
-          <select id="currentUser"><option value="Emil">Emil</option><option value="Jesper">Jesper</option></select>
+          <select id="currentUser">
+            <option value="Emil">Emil</option>
+            <option value="Jesper">Jesper</option>
+          </select>
         </label>
         <button id="installBtn" class="button secondary">Installér app</button>
       </div>
@@ -29,67 +33,142 @@
   </header>
 
   <main class="wrap">
-    <div id="storageBanner" class="storage-banner"><strong>Henter de 52 punkter…</strong> Forbinder til den fælles EJ ApS-liste.</div>
+    <div id="storageBanner" class="storage-banner loading">
+      <strong>Henter de 52 punkter…</strong> Forbinder til den fælles liste.
+    </div>
 
-    <section class="stats-grid" aria-label="Fremdrift">
-      <article class="stat-card"><span>I alt</span><strong id="totalCount">0</strong></article>
-      <article class="stat-card"><span>Færdige</span><strong id="doneCount">0</strong></article>
-      <article class="stat-card"><span>Åbne</span><strong id="openCount">0</strong></article>
-      <article class="stat-card progress-card"><span>Samlet fremdrift</span><strong id="progressPercent">0%</strong><div class="progress-track"><div id="progressBar" class="progress-bar"></div></div></article>
-    </section>
-
-    <section class="panel">
-      <div class="panel-heading"><div><h2>Milepæle</h2><p>Automatisk status på de vigtigste trin i opstarten.</p></div></div>
-      <div id="milestones" class="milestone-grid"></div>
-    </section>
-
-    <section class="two-column">
-      <article class="panel">
-        <div class="panel-heading"><div><h2>Ugens status</h2><p>Deadlines, overskredne og færdige opgaver.</p></div><button id="copyWeeklyBtn" class="button">Kopiér status</button></div>
-        <div id="weeklyStatus" class="weekly-status"></div>
+    <section class="simple-dashboard" aria-label="Fremdrift">
+      <article class="simple-progress">
+        <div class="simple-progress-top">
+          <span>Samlet fremdrift</span>
+          <strong id="progressPercent">0%</strong>
+        </div>
+        <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
       </article>
-      <article class="panel">
-        <div class="panel-heading"><div><h2>Seneste aktivitet</h2><p>Her kan I se, hvad Emil og Jesper har ændret.</p></div><button id="clearActivityBtn" class="button danger-ghost">Ryd log</button></div>
-        <div id="activityLog" class="activity-log"></div>
-      </article>
+      <div class="simple-counts">
+        <article class="simple-count"><span>I alt</span><strong id="totalCount">0</strong></article>
+        <article class="simple-count"><span>Færdige</span><strong id="doneCount">0</strong></article>
+        <article class="simple-count"><span>Åbne</span><strong id="openCount">0</strong></article>
+      </div>
     </section>
 
-    <section class="panel toolbar-panel">
-      <div class="toolbar">
-        <input id="searchInput" type="search" placeholder="Søg i opgaver, noter og kommentarer…">
-        <select id="ownerFilter"><option value="all">Alle ansvarlige</option><option value="Emil">Emil</option><option value="Jesper">Jesper</option><option value="Fælles">Fælles</option></select>
-        <select id="statusFilter"><option value="all">Alle statuser</option><option value="Ikke startet">Ikke startet</option><option value="I gang">I gang</option><option value="Afventer">Afventer</option><option value="Færdig">Færdig</option><option value="blocked">Blokeret</option></select>
-        <select id="priorityFilter"><option value="all">Alle prioriteter</option><option value="Høj">Høj</option><option value="Mellem">Mellem</option><option value="Lav">Lav</option></select>
-        <select id="deadlineFilter"><option value="all">Alle tidsfrister</option><option value="today">I dag</option><option value="week">Denne uge</option><option value="soon">Næste 3 dage</option><option value="overdue">Overskredet</option><option value="none">Uden tidsfrist</option></select>
-      </div>
-      <div class="toolbar-actions">
-        <button id="notificationBtn" class="button dark">Aktivér notifikationer</button>
-        <button id="calendarAllBtn" class="button">Apple/Outlook-kalender</button>
-        <button id="backupBtn" class="button">Eksportér backup</button>
-        <button id="restoreBtn" class="button">Importér backup</button>
-        <input id="restoreFile" type="file" accept="application/json" hidden>
-      </div>
-      <p class="help-text">Appen kontrollerer den fælles liste hvert femte sekund. Fremdriftsnotifikationer sendes for hvert nyt helt procenttal, I når.</p>
-    </section>
-
-    <section class="panel add-panel">
-      <div class="panel-heading"><div><h2>Tilføj opgave</h2><p>Opgaven bliver straks synlig for både Emil og Jesper.</p></div></div>
+    <section class="simple-add">
+      <h2>Tilføj opgave</h2>
       <div class="add-grid">
-        <label>Opgave<input id="newTitle" placeholder="Skriv opgaven…"></label>
+        <label>Opgave<input id="newTitle" placeholder="Hvad skal laves?"></label>
         <label>Kategori<select id="newCategory"></select></label>
         <label>Ansvarlig<select id="newOwner"><option>Fælles</option><option>Emil</option><option>Jesper</option></select></label>
-        <label>Prioritet<select id="newPriority"><option>Høj</option><option selected>Mellem</option><option>Lav</option></select></label>
-        <label>Dato<input id="newDate" type="date"></label>
-        <label>Tid<input id="newTime" type="time" value="09:00"></label>
         <button id="addTaskBtn" class="button primary">Tilføj</button>
       </div>
+      <details class="add-options">
+        <summary>Prioritet og tidsfrist</summary>
+        <div class="advanced-grid">
+          <label>Prioritet<select id="newPriority"><option>Høj</option><option selected>Mellem</option><option>Lav</option></select></label>
+          <label>Dato<input id="newDate" type="date"></label>
+          <label>Tid<input id="newTime" type="time" value="09:00"></label>
+        </div>
+      </details>
     </section>
 
-    <div id="taskRoot"><section class="panel"><strong>Henter alle 52 opstartspunkter…</strong></section></div>
+    <section class="simple-primary" aria-label="Søg og filtrér">
+      <input id="searchInput" type="search" placeholder="Søg i opgaver…">
+      <select id="ownerFilter">
+        <option value="all">Alle ansvarlige</option>
+        <option value="Emil">Emil</option>
+        <option value="Jesper">Jesper</option>
+        <option value="Fælles">Fælles</option>
+      </select>
+      <select id="statusFilter">
+        <option value="all">Alle statuser</option>
+        <option value="Ikke startet">Ikke startet</option>
+        <option value="I gang">I gang</option>
+        <option value="Afventer">Afventer</option>
+        <option value="Færdig">Færdig</option>
+        <option value="blocked">Blokeret</option>
+      </select>
+      <button id="expandAllBtn" class="button">Åbn alle</button>
+      <button id="collapseAllBtn" class="button">Luk alle</button>
+    </section>
+
+    <details class="simple-section">
+      <summary>Flere filtre</summary>
+      <div class="simple-section-content advanced-grid">
+        <label>Prioritet
+          <select id="priorityFilter">
+            <option value="all">Alle prioriteter</option>
+            <option value="Høj">Høj</option>
+            <option value="Mellem">Mellem</option>
+            <option value="Lav">Lav</option>
+          </select>
+        </label>
+        <label>Tidsfrist
+          <select id="deadlineFilter">
+            <option value="all">Alle tidsfrister</option>
+            <option value="today">I dag</option>
+            <option value="week">Denne uge</option>
+            <option value="soon">Næste 3 dage</option>
+            <option value="overdue">Overskredet</option>
+            <option value="none">Uden tidsfrist</option>
+          </select>
+        </label>
+      </div>
+    </details>
+
+    <div id="taskRoot">
+      <section class="panel"><strong>Henter alle 52 opstartspunkter…</strong></section>
+    </div>
+
+    <details class="simple-section">
+      <summary>Status, milepæle og aktivitet</summary>
+      <div class="simple-section-content">
+        <section class="panel">
+          <div class="panel-heading"><div><h2>Milepæle</h2><p>De vigtigste trin i opstarten.</p></div></div>
+          <div id="milestones" class="milestone-grid"></div>
+        </section>
+        <div class="overview-grid">
+          <article class="panel">
+            <div class="panel-heading">
+              <div><h2>Ugens status</h2><p>Deadlines og afsluttede opgaver.</p></div>
+              <button id="copyWeeklyBtn" class="button">Kopiér</button>
+            </div>
+            <div id="weeklyStatus" class="weekly-status"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-heading">
+              <div><h2>Seneste aktivitet</h2><p>Se hvad Emil og Jesper har ændret.</p></div>
+              <button id="clearActivityBtn" class="button danger-ghost">Ryd</button>
+            </div>
+            <div id="activityLog" class="activity-log"></div>
+          </article>
+        </div>
+      </div>
+    </details>
+
+    <details class="simple-section">
+      <summary>Notifikationer, kalender og backup</summary>
+      <div class="simple-section-content">
+        <div class="function-actions">
+          <button id="notificationBtn" class="button dark">Aktivér notifikationer</button>
+          <button id="calendarAllBtn" class="button">Tilføj fælles kalender</button>
+          <button id="backupBtn" class="button">Eksportér backup</button>
+          <button id="restoreBtn" class="button">Importér backup</button>
+          <input id="restoreFile" type="file" accept="application/json" hidden>
+        </div>
+        <p class="help-text">Appen synkroniserer cirka hvert femte sekund. Notifikationer sendes ved nye fremskridt og ændringer fra den anden.</p>
+      </div>
+    </details>
   </main>
 
-  <dialog id="installDialog"><form method="dialog" class="dialog-card"><h2>Installér EJ ApS To Do</h2><p id="installHelp">Åbn browserens menu og vælg “Føj til hjemmeskærm” eller “Installér app”.</p><button class="button primary">Luk</button></form></dialog>
+  <dialog id="installDialog">
+    <form method="dialog" class="dialog-card">
+      <h2>Installér EJ ApS To Do</h2>
+      <p id="installHelp">Åbn browserens menu og vælg “Føj til hjemmeskærm” eller “Installér app”.</p>
+      <button class="button primary">Luk</button>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app-v5.js?v=5" defer></script>
+  <script src="app-v5.js?v=6" defer></script>
+  <script src="simple-ui.js?v=6" defer></script>
 </body>
 </html>
