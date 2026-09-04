@@ -1,4 +1,4 @@
-const CACHE='ejaps-v11';
+const CACHE='ejaps-v12';
 const ASSETS=['./','./index.html','./styles.css','./simple.css','./brand.css','./task-help.css','./focus.css','./company-chat.css','./app-v5.js','./name-picker.js','./simple-ui.js','./task-help.js','./focus.js','./company-chat.js','./manifest.webmanifest','./icon-192.png','./icon-512.webp'];
 self.addEventListener('install',event=>{self.skipWaiting();event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)))});
 self.addEventListener('activate',event=>{event.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))),self.clients.claim()]))});
