@@ -1,0 +1,129 @@
+/* E&J ApS-branding til appen */
+.app-header {
+  background: #050505;
+  border-bottom: 3px solid #ff6410;
+  padding: 10px 0;
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+}
+
+.app-brand-logo {
+  width: 76px;
+  height: 76px;
+  flex: 0 0 76px;
+  object-fit: cover;
+  border-radius: 14px;
+  background: #000;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.12), 0 7px 20px rgba(0,0,0,.32);
+}
+
+.app-brand-copy {
+  min-width: 0;
+}
+
+.app-brand-copy h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(28px, 4vw, 38px);
+  line-height: 1;
+  letter-spacing: -.02em;
+}
+
+.app-brand-copy p {
+  display: block;
+  margin: 6px 0 0;
+  color: #ff8a45;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.app-brand-name {
+  display: block;
+  margin-bottom: 4px;
+  color: #f3f4f6;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .09em;
+}
+
+.button.primary {
+  background: #ff6410;
+  border-color: #ff6410;
+}
+
+.button.primary:hover {
+  background: #e95500;
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, #ff6410, #ff9b5d);
+}
+
+.simple-progress-top strong,
+.add-options > summary,
+.simple-category-toggle,
+.simple-detail-toggle {
+  color: #db5000;
+}
+
+.simple-detail-toggle {
+  border-color: #ffcfb5;
+  background: #fff7f2;
+}
+
+.storage-banner.online {
+  border-left: 4px solid #ff6410;
+}
+
+@media (max-width: 760px) {
+  .app-brand-logo {
+    width: 64px;
+    height: 64px;
+    flex-basis: 64px;
+    border-radius: 12px;
+  }
+
+  .app-brand-copy h1 {
+    font-size: 31px;
+  }
+
+  .app-brand-copy p {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 520px) {
+  .app-header {
+    padding: 8px 0;
+  }
+
+  .header-row {
+    gap: 9px;
+  }
+
+  .app-brand-logo {
+    width: 58px;
+    height: 58px;
+    flex-basis: 58px;
+  }
+
+  .app-brand-name {
+    display: none;
+  }
+
+  .app-brand-copy h1 {
+    font-size: 28px;
+  }
+
+  .app-brand-copy p {
+    margin-top: 4px;
+    letter-spacing: .07em;
+  }
+}
