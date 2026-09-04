@@ -20,9 +20,13 @@ main { padding-top: 12px; }
 .simple-progress-top span { color: var(--muted); font-size: 13px; }
 .simple-progress-top strong { color: var(--accent); font-size: 34px; line-height: 1; }
 .simple-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.simple-count { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 11px; box-shadow: var(--shadow); }
+.simple-count { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 11px; box-shadow: var(--shadow); cursor: pointer; transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease; }
+.simple-count:hover { transform: translateY(-1px); border-color: #ffb487; }
+.simple-count:focus-visible { outline: 3px solid #ffd8bf; outline-offset: 2px; }
+.simple-count.active-count-filter { border-color: #ff6410; box-shadow: 0 0 0 2px rgba(255,100,16,.14), var(--shadow); }
 .simple-count span { display: block; color: var(--muted); font-size: 12px; }
 .simple-count strong { display: block; font-size: 22px; margin-top: 2px; }
+.count-filter-hidden, .count-filter-category-hidden { display: none !important; }
 
 .simple-primary { display: grid; grid-template-columns: minmax(210px, 2fr) minmax(135px, 1fr) minmax(135px, 1fr) auto auto; gap: 8px; align-items: center; margin-bottom: 10px; }
 .simple-primary .button { white-space: nowrap; }
