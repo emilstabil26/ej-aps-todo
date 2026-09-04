@@ -7,19 +7,20 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="E&J To Do">
-  <link rel="manifest" href="manifest.webmanifest?v=7">
-  <link rel="icon" href="icon-192.png?v=7" type="image/png" sizes="192x192">
-  <link rel="apple-touch-icon" href="icon-192.png?v=7" sizes="192x192">
-  <link rel="stylesheet" href="styles.css?v=7">
-  <link rel="stylesheet" href="simple.css?v=7">
-  <link rel="stylesheet" href="brand.css?v=7">
+  <link rel="manifest" href="manifest.webmanifest?v=8">
+  <link rel="icon" href="icon-192.png?v=8" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icon-192.png?v=8" sizes="192x192">
+  <link rel="stylesheet" href="styles.css?v=8">
+  <link rel="stylesheet" href="simple.css?v=8">
+  <link rel="stylesheet" href="brand.css?v=8">
+  <link rel="stylesheet" href="task-help.css?v=8">
   <title>E&J ApS To Do</title>
 </head>
 <body>
   <header class="app-header">
     <div class="wrap header-row">
       <div class="app-brand">
-        <img class="app-brand-logo" src="icon-192.png?v=7" alt="E&J ApS-logo">
+        <img class="app-brand-logo" src="icon-192.png?v=8" alt="E&J ApS-logo">
         <div class="app-brand-copy">
           <span class="app-brand-name">E&amp;J ApS</span>
           <h1>To Do</h1>
@@ -27,8 +28,9 @@
         </div>
       </div>
       <div class="header-actions">
-        <label class="user-picker">Jeg er
+        <label class="user-picker">Navn
           <select id="currentUser">
+            <option value="">Navn?</option>
             <option value="Emil">Emil</option>
             <option value="Jesper">Jesper</option>
           </select>
@@ -174,7 +176,9 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app-v5.js?v=7" defer></script>
-  <script src="simple-ui.js?v=7" defer></script>
+  <script src="app-v5.js?v=8" defer></script>
+  <script src="name-picker.js?v=8" defer></script>
+  <script src="simple-ui.js?v=8" defer></script>
+  <script src="task-help.js?v=8" defer></script>
 </body>
 </html>
