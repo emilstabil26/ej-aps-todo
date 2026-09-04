@@ -1,140 +1,92 @@
 'use strict';
-
 (() => {
-  const SUPABASE_URL = 'https://mjzylixznhavpfwdwovc.supabase.co';
-  const PUBLISHABLE_KEY = 'sb_publishable__SKXSCwCGD024us-MWHyEA_bNL8Y-kt';
-  const WORKSPACE_ID = '7c891748-38d0-4b4c-a667-792e2c31952b';
-  const CHANNELS = ['Generelt','Kunder','Økonomi','Idéer','Beslutninger','Vigtigt'];
-  const CATEGORY_OPTIONS = ['1. Aftal rammerne mellem ejerne','2. Lav ejeraftale','3. Stift selskabet','4. Ejerforhold','5. Bank, skat og økonomi','6. Praktisk drift','7. Før I går i gang'];
-  let activeChannel = localStorage.getItem('ejaps_company_channel_v1') || 'Generelt';
-  let messages = [];
-  let seenIds = new Set();
-  let firstLoad = true;
-  let panelOpen = false;
-  let activityOpen = false;
-  let activityFilter = 'Alle';
-  let pendingMessageId = '';
+  const SUPABASE_URL='https://mjzylixznhavpfwdwovc.supabase.co';
+  const API=`${SUPABASE_URL}/functions/v1/ej-company-api`;
+  const PUBLISHABLE_KEY='sb_publishable__SKXSCwCGD024us-MWHyEA_bNL8Y-kt';
+  const CHANNELS=['Generelt','Kunder','Økonomi','Idéer','Beslutninger','Vigtigt'];
+  const CATEGORIES=['1. Aftal rammerne mellem ejerne','2. Lav ejeraftale','3. Stift selskabet','4. Ejerforhold','5. Bank, skat og økonomi','6. Praktisk drift','7. Før I går i gang'];
+  let activeChannel=localStorage.getItem('ejaps_company_channel_v1')||'Generelt';
+  let messages=[],seenIds=new Set(),firstLoad=true,panelOpen=false,activityOpen=false,activityFilter='Alle',pendingId='';
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmt=v=>v?new Intl.DateTimeFormat('da-DK',{dateStyle:'short',timeStyle:'short'}).format(new Date(v)):'';
+  const actor=()=>typeof currentUser==='string'?currentUser:'';
+  const code=()=>typeof teamCode==='string'?teamCode:'';
+  const msg=id=>messages.find(m=>m.id===id);
+  const showDialog=d=>{if(d?.showModal)d.showModal();else if(d)d.setAttribute('open','')};
+  const closeDialog=d=>{if(d?.close)d.close();else d?.removeAttribute('open')};
 
-  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const fmt = (value) => value ? new Intl.DateTimeFormat('da-DK',{dateStyle:'short',timeStyle:'short'}).format(new Date(value)) : '';
-  function actor() { return typeof currentUser === 'string' ? currentUser : ''; }
-  function code() { return typeof teamCode === 'string' ? teamCode : ''; }
-
-  async function rest(path, options = {}) {
-    const headers = new Headers(options.headers || {});
-    headers.set('apikey', PUBLISHABLE_KEY);
-    headers.set('x-ej-team-code', code());
-    headers.set('x-ej-actor', actor());
-    if (options.body && !headers.has('Content-Type')) headers.set('Content-Type','application/json');
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { ...options, headers, cache:'no-store' });
-    const text = await response.text();
-    let data = null;
-    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-    if (!response.ok) throw new Error(data?.message || data?.error || `Fejl ${response.status}`);
-    return data;
+  async function api(path='messages',options={}){
+    const headers=new Headers(options.headers||{});
+    headers.set('apikey',PUBLISHABLE_KEY);headers.set('Authorization',`Bearer ${PUBLISHABLE_KEY}`);headers.set('x-ej-team-code',code());headers.set('x-ej-actor',actor());
+    let body=options.body;if(body&&typeof body!=='string'){headers.set('Content-Type','application/json');body=JSON.stringify(body)}
+    const r=await fetch(`${API}/${path}`,{...options,headers,body,cache:'no-store'});const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}if(!r.ok)throw new Error(data?.error||`Fejl ${r.status}`);return data;
   }
 
-  function buildUi() {
-    if (document.getElementById('companyPanel')) return;
-    document.body.insertAdjacentHTML('beforeend', `
-      <nav id="bottomNav" class="bottom-nav" aria-label="Hovedmenu">
-        <button type="button" data-nav="today"><span class="nav-icon">☀</span>I dag</button>
-        <button type="button" data-nav="tasks" class="active"><span class="nav-icon">✓</span>Opgaver</button>
-        <button type="button" data-nav="company"><span class="nav-icon">💬</span>Firma <span id="companyUnread" class="company-unread" hidden>0</span></button>
-        <button type="button" data-nav="activity"><span class="nav-icon">↻</span>Aktivitet</button>
-      </nav>
-
-      <section id="companyPanel" class="company-panel" hidden>
-        <div class="company-shell">
-          <header class="company-header"><div class="company-header-row"><div><h2>Firma</h2><p>Kun E&amp;J ApS · fælles beskeder mellem Emil og Jesper</p></div><button id="companyClose" type="button" class="company-close">Luk</button></div></header>
-          <div id="companyTabs" class="company-tabs"></div>
-          <div id="companyChat" class="company-chat"><div class="company-empty">Henter beskeder…</div></div>
-          <div class="company-note">Brug området til kunder, økonomi, idéer og beslutninger om firmaet.</div>
-          <form id="companyComposer" class="company-composer"><textarea id="companyMessage" maxlength="4000" placeholder="Skriv om E&J ApS…" required></textarea><button type="submit" class="button company-send">Send</button></form>
-        </div>
-      </section>
-
-      <section id="activityPanel" class="activity-page" hidden>
-        <div class="activity-shell">
-          <header class="activity-header"><div><h2>Aktivitet</h2><p>Alt der er ændret i E&amp;J ApS — helt adskilt fra I dag og Opgaver.</p></div><button id="activityClose" type="button" class="company-close">Luk</button></header>
-          <div class="activity-toolbar">
-            <div id="activityFilters" class="activity-filters"><button type="button" class="active" data-activity-filter="Alle">Alle</button><button type="button" data-activity-filter="Emil">Emil</button><button type="button" data-activity-filter="Jesper">Jesper</button></div>
-            <div class="activity-tools"><button id="activityRefresh" type="button" class="button">Opdatér</button><button id="activityClearPage" type="button" class="button danger-ghost">Ryd log</button></div>
-          </div>
-          <div id="activityPageSummary" class="activity-summary"></div>
-          <div id="activityPageLog" class="activity-page-log"><div class="company-empty">Henter aktivitet…</div></div>
-        </div>
-      </section>
-
-      <dialog id="messageTaskDialog" class="task-from-message-dialog"><div class="task-from-message-card"><h3>Lav beskeden til en opgave</h3><p id="messageTaskPreview"></p><div class="task-from-message-grid"><label>Kategori<select id="messageTaskCategory"></select></label><label>Ansvarlig<select id="messageTaskOwner"><option>Fælles</option><option>Emil</option><option>Jesper</option></select></label><label>Prioritet<select id="messageTaskPriority"><option>Høj</option><option selected>Mellem</option><option>Lav</option></select></label></div><div class="task-from-message-actions"><button id="messageTaskCancel" type="button" class="button">Annuller</button><button id="messageTaskCreate" type="button" class="button primary">Opret opgave</button></div></div></dialog>`);
-    document.getElementById('companyTabs').innerHTML = CHANNELS.map(c => `<button type="button" class="company-tab ${c===activeChannel?'active':''}" data-channel="${esc(c)}">${esc(c)}</button>`).join('');
-    document.getElementById('messageTaskCategory').innerHTML = CATEGORY_OPTIONS.map(c=>`<option>${esc(c)}</option>`).join('');
-
-    const oldLog = document.getElementById('activityLog');
-    const oldActivityCard = oldLog?.closest('article');
-    if (oldActivityCard) oldActivityCard.hidden = true;
-    const oldDetails = oldLog?.closest('details');
-    const oldSummary = oldDetails?.querySelector(':scope > summary');
-    if (oldSummary && /aktivitet/i.test(oldSummary.textContent || '')) oldSummary.textContent = 'Status og milepæle';
+  function buildUi(){
+    if(document.getElementById('companyPanel'))return;
+    document.body.insertAdjacentHTML('beforeend',`
+      <nav id="bottomNav" class="bottom-nav" aria-label="Hovedmenu"><button type="button" data-nav="today"><span class="nav-icon">☀</span>I dag</button><button type="button" data-nav="tasks" class="active"><span class="nav-icon">✓</span>Opgaver</button><button type="button" data-nav="company"><span class="nav-icon">💬</span>Firma <span id="companyUnread" class="company-unread" hidden>0</span></button><button type="button" data-nav="activity"><span class="nav-icon">↻</span>Aktivitet</button></nav>
+      <section id="companyPanel" class="company-panel" hidden><div class="company-shell"><header class="company-header"><div class="company-header-row"><div><h2>Firma</h2><p>Fælles beskeder · vælg selv hvad den enkelte besked skal blive til</p></div><button id="companyClose" type="button" class="company-close">Luk</button></div></header><div id="companySmartBar" class="company-smartbar"></div><div id="companyTabs" class="company-tabs"></div><div id="companyChat" class="company-chat"><div class="company-empty">Henter beskeder…</div></div><form id="companyComposer" class="company-composer"><textarea id="companyMessage" maxlength="4000" placeholder="Skriv en almindelig besked…" required></textarea><button type="submit" class="button company-send">Send</button></form></div></section>
+      <section id="activityPanel" class="activity-page" hidden><div class="activity-shell"><header class="activity-header"><div><h2>Aktivitet</h2><p>Alt der er ændret i E&amp;J ApS — sin egen side.</p></div><button id="activityClose" type="button" class="company-close">Luk</button></header><div class="activity-toolbar"><div id="activityFilters" class="activity-filters"><button type="button" class="active" data-activity-filter="Alle">Alle</button><button type="button" data-activity-filter="Emil">Emil</button><button type="button" data-activity-filter="Jesper">Jesper</button></div><div class="activity-tools"><button id="activityRefresh" type="button" class="button">Opdatér</button><button id="activityClearPage" type="button" class="button danger-ghost">Ryd log</button></div></div><div id="activityPageSummary" class="activity-summary"></div><div id="activityPageLog" class="activity-page-log"><div class="company-empty">Henter aktivitet…</div></div></div></section>
+      <dialog id="messageActionDialog" class="message-action-dialog"><div class="message-action-card"><h3>Gør beskeden til…</h3><p id="messageActionPreview"></p><div class="message-action-grid"><button type="button" data-transform="task">✓ Opgave</button><button type="button" data-transform="decision">⚖ Beslutning</button><button type="button" data-transform="customer">👷 Kundenote</button><button type="button" data-transform="expense">kr. Udlæg</button><button type="button" data-transform="calendar">◷ Kalenderpunkt</button><button type="button" data-transform="reply">↩ Kræver svar</button><button type="button" data-transform="important">★ Vigtigt</button></div><button id="messageActionCancel" type="button" class="button action-cancel">Annuller</button></div></dialog>
+      <dialog id="messageTaskDialog" class="task-from-message-dialog"><div class="task-from-message-card"><h3>Lav beskeden til en opgave</h3><p id="messageTaskPreview"></p><div class="task-from-message-grid"><label>Kategori<select id="messageTaskCategory"></select></label><label>Ansvarlig<select id="messageTaskOwner"><option>Fælles</option><option>Emil</option><option>Jesper</option></select></label><label>Prioritet<select id="messageTaskPriority"><option>Høj</option><option selected>Mellem</option><option>Lav</option></select></label></div><div class="task-from-message-actions"><button id="messageTaskCancel" type="button" class="button">Annuller</button><button id="messageTaskCreate" type="button" class="button primary">Opret opgave</button></div></div></dialog>
+      <dialog id="messageDetailDialog" class="task-from-message-dialog"><div class="task-from-message-card"><h3 id="detailTitle"></h3><p id="detailPreview"></p><div id="detailFields" class="task-from-message-grid"></div><div class="task-from-message-actions"><button id="detailCancel" type="button" class="button">Annuller</button><button id="detailSave" type="button" class="button primary">Gem</button></div></div></dialog>`);
+    document.getElementById('companyTabs').innerHTML=CHANNELS.map(c=>`<button type="button" class="company-tab ${c===activeChannel?'active':''}" data-channel="${esc(c)}">${esc(c)}</button>`).join('');
+    document.getElementById('messageTaskCategory').innerHTML=CATEGORIES.map(c=>`<option>${esc(c)}</option>`).join('');
+    const old=document.getElementById('activityLog')?.closest('article');if(old)old.hidden=true;
+    const summary=document.getElementById('activityLog')?.closest('details')?.querySelector(':scope > summary');if(summary&&/aktivitet/i.test(summary.textContent||''))summary.textContent='Status og milepæle';
   }
 
-  function setNav(name) { document.querySelectorAll('#bottomNav [data-nav]').forEach(b=>b.classList.toggle('active',b.dataset.nav===name)); }
-  function hidePanels() { panelOpen=false;activityOpen=false;document.getElementById('companyPanel').hidden=true;document.getElementById('activityPanel').hidden=true; }
-  function openCompany() { hidePanels();panelOpen=true;document.getElementById('companyPanel').hidden=false;setNav('company');clearUnread();loadMessages(true);setTimeout(()=>document.getElementById('companyMessage')?.focus(),100); }
-  function closeCompany(nav='tasks') { hidePanels();setNav(nav); }
-  function openActivity() { hidePanels();activityOpen=true;document.getElementById('activityPanel').hidden=false;setNav('activity');renderActivityPage(); }
-  function clearUnread() { const badge=document.getElementById('companyUnread');badge.hidden=true;badge.textContent='0'; }
-  function addUnread(count=1) { if(panelOpen)return;const badge=document.getElementById('companyUnread');const next=Number(badge.textContent||0)+count;badge.textContent=String(next);badge.hidden=false; }
-  function renderTabs() { document.querySelectorAll('.company-tab').forEach(b=>b.classList.toggle('active',b.dataset.channel===activeChannel)); }
+  function setNav(name){document.querySelectorAll('#bottomNav [data-nav]').forEach(b=>b.classList.toggle('active',b.dataset.nav===name))}
+  function hidePanels(){panelOpen=false;activityOpen=false;document.getElementById('companyPanel').hidden=true;document.getElementById('activityPanel').hidden=true}
+  function openCompany(){hidePanels();panelOpen=true;document.getElementById('companyPanel').hidden=false;setNav('company');clearUnread();loadMessages(true)}
+  function openActivity(){hidePanels();activityOpen=true;document.getElementById('activityPanel').hidden=false;setNav('activity');renderActivityPage()}
+  function closePanels(nav='tasks'){hidePanels();setNav(nav)}
+  function clearUnread(){const b=document.getElementById('companyUnread');b.hidden=true;b.textContent='0'}
+  function addUnread(n=1){if(panelOpen)return;const b=document.getElementById('companyUnread'),v=Number(b.textContent||0)+n;b.textContent=String(v);b.hidden=false}
 
-  function renderActivityPage() {
-    const host=document.getElementById('activityPageLog');
-    const summary=document.getElementById('activityPageSummary');
-    if(!host||!summary)return;
-    const all=(typeof state!=='undefined' && Array.isArray(state.activities)) ? state.activities : [];
-    const list=activityFilter==='Alle'?all:all.filter(a=>a.actor===activityFilter);
-    const todayKey=new Date().toDateString();
-    const today=all.filter(a=>new Date(a.created_at).toDateString()===todayKey).length;
-    const emil=all.filter(a=>a.actor==='Emil').length;
-    const jesper=all.filter(a=>a.actor==='Jesper').length;
-    summary.innerHTML=`<div><span>I dag</span><strong>${today}</strong></div><div><span>Emil</span><strong>${emil}</strong></div><div><span>Jesper</span><strong>${jesper}</strong></div>`;
-    if(!list.length){host.innerHTML='<div class="company-empty"><strong>Ingen aktivitet endnu.</strong><br>Når noget ændres i appen, vises det her.</div>';return}
-    host.innerHTML=list.map(a=>`<article class="activity-page-item"><div class="activity-avatar">${esc((a.actor||'?').slice(0,1))}</div><div><strong>${esc(typeof activityText==='function'?activityText(a):`${a.actor}: ${a.detail||a.action||''}`)}</strong><time>${esc(typeof formatDateTime==='function'?formatDateTime(a.created_at):fmt(a.created_at))}</time></div></article>`).join('');
+  function smartBar(){
+    const a=actor(),reply=messages.filter(m=>m.requires_reply_from===a&&!m.reply_resolved_at),important=messages.filter(m=>m.is_important),decisions=messages.filter(m=>m.kind==='decision'||m.channel==='Beslutninger');
+    document.getElementById('companySmartBar').innerHTML=`<button type="button" data-smart="reply"><strong>${reply.length}</strong><span>Kræver dit svar</span></button><button type="button" data-smart="important"><strong>${important.length}</strong><span>Vigtigt</span></button><button type="button" data-smart="decisions"><strong>${decisions.length}</strong><span>Beslutninger</span></button>`;
   }
-
-  function renderMessages() {
-    const host=document.getElementById('companyChat');
-    const list=messages.filter(m=>m.channel===activeChannel);
-    if(!list.length){host.innerHTML=`<div class="company-empty"><strong>Ingen beskeder i ${esc(activeChannel)} endnu.</strong><br>Skriv den første besked her.</div>`;return}
-    host.innerHTML=list.map(m=>{const mine=m.author===actor();return `<div class="message-row ${mine?'mine':''}" data-message-id="${m.id}"><div class="message-bubble"><div class="message-head"><strong>${esc(m.author)}</strong><span>${esc(fmt(m.created_at))}</span></div><div class="message-body">${esc(m.body)}</div>${m.task_id?'<span class="message-task-badge">✓ Opgave oprettet</span>':''}<div class="message-actions"><button type="button" class="decision" data-msg-action="decision">Gem som beslutning</button><button type="button" data-msg-action="task">Lav opgave</button>${mine?'<button type="button" class="danger" data-msg-action="delete">Slet</button>':''}</div></div></div>`}).join('');host.scrollTop=host.scrollHeight;
+  function badges(m){const out=[];if(m.kind==='decision')out.push('Beslutning');if(m.kind==='customer_note'&&m.customer_name)out.push(`Kunde: ${m.customer_name}`);if(m.kind==='expense'&&m.amount!=null)out.push(`${Number(m.amount).toLocaleString('da-DK')} kr. · ${m.paid_by||''}`);if(m.kind==='calendar'&&m.calendar_at)out.push(`Kalender · ${fmt(m.calendar_at)}`);if(m.requires_reply_from&&!m.reply_resolved_at)out.push(`Kræver svar: ${m.requires_reply_from}`);if(m.reply_resolved_at)out.push('Svar håndteret');if(m.is_important)out.push('★ Vigtigt');if(m.task_id)out.push('✓ Opgave oprettet');return out.map(x=>`<span class="message-meta-badge">${esc(x)}</span>`).join('')}
+  function renderMessages(){
+    smartBar();const host=document.getElementById('companyChat');const list=messages.filter(m=>m.channel===activeChannel);if(!list.length){host.innerHTML=`<div class="company-empty"><strong>Ingen beskeder i ${esc(activeChannel)} endnu.</strong><br>Alle nye beskeder starter som helt almindelige beskeder.</div>`;return}
+    host.innerHTML=list.map(m=>`<div class="message-row ${m.author===actor()?'mine':''}" data-message-id="${m.id}"><div class="message-bubble"><div class="message-head"><strong>${esc(m.author)}</strong><span>${esc(fmt(m.created_at))}</span></div><div class="message-body">${esc(m.body)}</div><div class="message-badges">${badges(m)}</div><div class="message-actions"><button type="button" class="transform" data-msg-action="transform">Gør til…</button>${m.requires_reply_from===actor()&&!m.reply_resolved_at?'<button type="button" data-msg-action="resolved">Svar håndteret</button>':''}${m.author===actor()?'<button type="button" class="danger" data-msg-action="delete">Slet</button>':''}</div></div></div>`).join('');host.scrollTop=host.scrollHeight;
   }
+  async function loadMessages(force=false){try{const data=await api('messages');const incoming=Array.isArray(data)?data:[];const fresh=firstLoad?[]:incoming.filter(m=>!seenIds.has(m.id)&&m.author!==actor());messages=incoming;seenIds=new Set(messages.map(m=>m.id));if(force||panelOpen)renderMessages();if(fresh.length){addUnread(fresh.length);fresh.forEach(m=>window.showToast?.(`${m.author} skrev i Firma · ${m.channel}`))}firstLoad=false}catch(e){if(panelOpen)document.getElementById('companyChat').innerHTML=`<div class="company-empty"><strong>Firma kunne ikke hentes.</strong><br>${esc(e.message)}</div>`}}
+  async function sendMessage(text){if(!actor()){window.showToast?.('Vælg først Emil eller Jesper');return}await api('messages',{method:'POST',body:{channel:activeChannel,body:text}});await loadMessages(true)}
+  async function patchMessage(id,body){await api(`messages/${id}`,{method:'PATCH',body});await loadMessages(true)}
+  async function copyStructured(source,body){await api('messages',{method:'POST',body:{body:source.body,channel:body.channel||source.channel,kind:body.kind||'message',source_message_id:source.id,...body}});await loadMessages(true)}
 
-  async function loadMessages(force=false) {
-    try { const data=await rest(`company_messages?workspace_id=eq.${WORKSPACE_ID}&select=*&order=created_at.asc&limit=300`);const incoming=Array.isArray(data)?data:[];const newFromOther=firstLoad?[]:incoming.filter(m=>!seenIds.has(m.id)&&m.author!==actor());messages=incoming;seenIds=new Set(messages.map(m=>m.id));if(force||panelOpen)renderMessages();if(newFromOther.length){addUnread(newFromOther.length);for(const m of newFromOther){window.showToast?.(`${m.author} skrev i Firma · ${m.channel}`);if(typeof systemNotification==='function')systemNotification(`${m.author} · Firma`,m.body.slice(0,140),`firmachat-${m.id}`)}}firstLoad=false; } catch(error) { if(panelOpen)document.getElementById('companyChat').innerHTML=`<div class="company-empty"><strong>Firma-chat kunne ikke hentes.</strong><br>${esc(error.message)}</div>`; }
+  function renderActivityPage(){const host=document.getElementById('activityPageLog'),sum=document.getElementById('activityPageSummary');if(!host||!sum)return;const all=(typeof state!=='undefined'&&Array.isArray(state.activities))?state.activities:[],list=activityFilter==='Alle'?all:all.filter(a=>a.actor===activityFilter),today=all.filter(a=>new Date(a.created_at).toDateString()===new Date().toDateString()).length;sum.innerHTML=`<div><span>I dag</span><strong>${today}</strong></div><div><span>Emil</span><strong>${all.filter(a=>a.actor==='Emil').length}</strong></div><div><span>Jesper</span><strong>${all.filter(a=>a.actor==='Jesper').length}</strong></div>`;host.innerHTML=list.length?list.map(a=>`<article class="activity-page-item"><div class="activity-avatar">${esc((a.actor||'?')[0])}</div><div><strong>${esc(typeof activityText==='function'?activityText(a):`${a.actor}: ${a.detail||a.action||''}`)}</strong><time>${esc(typeof formatDateTime==='function'?formatDateTime(a.created_at):fmt(a.created_at))}</time></div></article>`).join(''):'<div class="company-empty">Ingen aktivitet endnu.</div>'}
+
+  function actionDialog(id){pendingId=id;document.getElementById('messageActionPreview').textContent=msg(id)?.body||'';showDialog(document.getElementById('messageActionDialog'))}
+  function taskDialog(){const m=msg(pendingId);if(!m)return;closeDialog(document.getElementById('messageActionDialog'));document.getElementById('messageTaskPreview').textContent=m.body;document.getElementById('messageTaskOwner').value='Fælles';document.getElementById('messageTaskPriority').value=m.is_important?'Høj':'Mellem';showDialog(document.getElementById('messageTaskDialog'))}
+  function detailDialog(type){const m=msg(pendingId);if(!m)return;closeDialog(document.getElementById('messageActionDialog'));const title=document.getElementById('detailTitle'),fields=document.getElementById('detailFields');fields.dataset.type=type;document.getElementById('detailPreview').textContent=m.body;
+    if(type==='customer'){title.textContent='Gem som kundenote';fields.innerHTML='<label>Kunde<input id="detailCustomer" placeholder="Kundens navn" required></label>'}
+    if(type==='expense'){title.textContent='Gem som udlæg';fields.innerHTML=`<label>Beløb<input id="detailAmount" type="number" min="0" step="0.01" placeholder="0,00"></label><label>Betalt af<select id="detailPaidBy"><option>${esc(actor()||'Emil')}</option><option>${actor()==='Emil'?'Jesper':'Emil'}</option><option>Firma</option></select></label>`}
+    if(type==='calendar'){title.textContent='Lav kalenderpunkt';fields.innerHTML='<label>Dato og tid<input id="detailCalendar" type="datetime-local" required></label><label>Titel<input id="detailCalendarTitle" placeholder="Titel" required></label>'}
+    if(type==='reply'){title.textContent='Kræver svar fra';fields.innerHTML=`<label>Person<select id="detailReply"><option>${actor()==='Emil'?'Jesper':'Emil'}</option><option>${esc(actor()||'Emil')}</option></select></label>`}
+    showDialog(document.getElementById('messageDetailDialog'));
   }
+  async function saveDetail(){const m=msg(pendingId),type=document.getElementById('detailFields').dataset.type;if(!m)return;if(type==='customer'){const customer=document.getElementById('detailCustomer').value.trim();if(!customer)return window.showToast?.('Skriv kundens navn');await copyStructured(m,{channel:'Kunder',kind:'customer_note',customer_name:customer});window.showToast?.('Gemt som kundenote')}
+    if(type==='expense'){const amount=document.getElementById('detailAmount').value,paid_by=document.getElementById('detailPaidBy').value;if(!amount)return window.showToast?.('Skriv beløbet');await copyStructured(m,{channel:'Økonomi',kind:'expense',amount:Number(amount),paid_by});window.showToast?.('Gemt som udlæg')}
+    if(type==='calendar'){const value=document.getElementById('detailCalendar').value,title=document.getElementById('detailCalendarTitle').value.trim();if(!value||!title)return window.showToast?.('Vælg dato/tid og skriv en titel');await copyStructured(m,{kind:'calendar',calendar_at:new Date(value).toISOString(),calendar_title:title});window.showToast?.('Gemt som kalenderpunkt')}
+    if(type==='reply'){await patchMessage(m.id,{requires_reply_from:document.getElementById('detailReply').value,reply_resolved_at:null});window.showToast?.('Markeret som kræver svar')}
+    closeDialog(document.getElementById('messageDetailDialog'));pendingId='';}
+  async function createTask(){const m=msg(pendingId);if(!m||typeof request!=='function')return;const created=await request('tasks',{method:'POST',body:{title:m.body.slice(0,220),category:document.getElementById('messageTaskCategory').value,owner:document.getElementById('messageTaskOwner').value,priority:document.getElementById('messageTaskPriority').value,status:'Ikke startet',notes:`Oprettet fra Firma · ${m.channel} · ${m.author}`,actor:actor()}});const id=Array.isArray(created)?created[0]?.id:created?.id;if(id)await patchMessage(m.id,{task_id:id});closeDialog(document.getElementById('messageTaskDialog'));pendingId='';if(typeof loadSnapshot==='function')await loadSnapshot(true);window.showToast?.('Beskeden er lavet til en opgave')}
 
-  async function sendMessage(text,channel=activeChannel,sourceId=null) { if(!actor()){window.showToast?.('Vælg først Emil eller Jesper under Navn');return false}const body={workspace_id:WORKSPACE_ID,channel,author:actor(),body:text};if(sourceId)body.source_message_id=sourceId;await rest('company_messages',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(body)});await loadMessages(true);return true; }
-  async function deleteMessage(id) { await rest(`company_messages?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${WORKSPACE_ID}`,{method:'DELETE'});await loadMessages(true); }
-  function openTaskDialog(id) { const message=messages.find(m=>m.id===id);if(!message)return;if(!actor()){window.showToast?.('Vælg først Navn');return}pendingMessageId=id;document.getElementById('messageTaskPreview').textContent=message.body;document.getElementById('messageTaskOwner').value='Fælles';document.getElementById('messageTaskPriority').value=message.channel==='Vigtigt'?'Høj':'Mellem';document.getElementById('messageTaskDialog').showModal(); }
-
-  async function createTaskFromMessage() {
-    const message=messages.find(m=>m.id===pendingMessageId);if(!message)return;
-    const payload={title:message.body.slice(0,220),category:document.getElementById('messageTaskCategory').value,owner:document.getElementById('messageTaskOwner').value,priority:document.getElementById('messageTaskPriority').value,status:'Ikke startet',notes:`Oprettet fra Firma · ${message.channel} · ${message.author}`,actor:actor()};
-    try{if(typeof request!=='function')throw new Error('Opgavefunktionen er ikke klar');await request('tasks',{method:'POST',body:payload});document.getElementById('messageTaskDialog').close();pendingMessageId='';if(typeof loadSnapshot==='function')await loadSnapshot(true);window.showToast?.('Beskeden er lavet til en opgave');}catch(error){window.showToast?.(error.message||'Kunne ikke oprette opgaven')}
+  function bind(){
+    document.getElementById('bottomNav').onclick=e=>{const b=e.target.closest('[data-nav]');if(!b)return;const nav=b.dataset.nav;if(nav==='company')return openCompany();if(nav==='activity')return openActivity();closePanels(nav);if(nav==='today'){document.getElementById('todayModeBtn')?.click();document.getElementById('nextActions')?.scrollIntoView({behavior:'smooth'})}if(nav==='tasks'){document.getElementById('allModeBtn')?.click();document.getElementById('taskRoot')?.scrollIntoView({behavior:'smooth'})}};
+    document.getElementById('companyClose').onclick=()=>closePanels('tasks');document.getElementById('activityClose').onclick=()=>closePanels('tasks');
+    document.getElementById('companyTabs').onclick=e=>{const b=e.target.closest('[data-channel]');if(!b)return;activeChannel=b.dataset.channel;localStorage.setItem('ejaps_company_channel_v1',activeChannel);document.querySelectorAll('.company-tab').forEach(x=>x.classList.toggle('active',x===b));renderMessages()};
+    document.getElementById('companySmartBar').onclick=e=>{const b=e.target.closest('[data-smart]');if(!b)return;if(b.dataset.smart==='decisions')activeChannel='Beslutninger';if(b.dataset.smart==='important')activeChannel='Vigtigt';document.querySelectorAll('.company-tab').forEach(x=>x.classList.toggle('active',x.dataset.channel===activeChannel));renderMessages()};
+    document.getElementById('companyComposer').onsubmit=async e=>{e.preventDefault();const input=document.getElementById('companyMessage'),text=input.value.trim();if(!text)return;try{await sendMessage(text);input.value='';input.focus()}catch(err){window.showToast?.(err.message)}};
+    document.getElementById('companyChat').onclick=async e=>{const b=e.target.closest('[data-msg-action]');if(!b)return;const id=b.closest('[data-message-id]')?.dataset.messageId;if(!id)return;try{if(b.dataset.msgAction==='transform')actionDialog(id);if(b.dataset.msgAction==='resolved')await patchMessage(id,{reply_resolved_at:new Date().toISOString()});if(b.dataset.msgAction==='delete'&&confirm('Slet beskeden?')){await api(`messages/${id}`,{method:'DELETE'});await loadMessages(true)}}catch(err){window.showToast?.(err.message)}};
+    document.getElementById('messageActionDialog').onclick=async e=>{const b=e.target.closest('[data-transform]');if(!b)return;const type=b.dataset.transform,m=msg(pendingId);try{if(type==='task')return taskDialog();if(type==='decision'){await copyStructured(m,{channel:'Beslutninger',kind:'decision'});closeDialog(document.getElementById('messageActionDialog'));window.showToast?.('Gemt som beslutning')}if(type==='important'){await patchMessage(m.id,{is_important:!m.is_important});closeDialog(document.getElementById('messageActionDialog'));window.showToast?.(m.is_important?'Fjernet fra vigtigt':'Markeret vigtigt')}if(['customer','expense','calendar','reply'].includes(type))detailDialog(type)}catch(err){window.showToast?.(err.message)}};
+    document.getElementById('messageActionCancel').onclick=()=>closeDialog(document.getElementById('messageActionDialog'));document.getElementById('messageTaskCancel').onclick=()=>closeDialog(document.getElementById('messageTaskDialog'));document.getElementById('messageTaskCreate').onclick=()=>createTask().catch(e=>window.showToast?.(e.message));document.getElementById('detailCancel').onclick=()=>closeDialog(document.getElementById('messageDetailDialog'));document.getElementById('detailSave').onclick=()=>saveDetail().catch(e=>window.showToast?.(e.message));
+    document.getElementById('activityRefresh').onclick=async()=>{if(typeof loadSnapshot==='function')await loadSnapshot(true);renderActivityPage()};document.getElementById('activityClearPage').onclick=()=>document.getElementById('clearActivityBtn')?.click();document.getElementById('activityFilters').onclick=e=>{const b=e.target.closest('[data-activity-filter]');if(!b)return;activityFilter=b.dataset.activityFilter;document.querySelectorAll('[data-activity-filter]').forEach(x=>x.classList.toggle('active',x===b));renderActivityPage()};
   }
-
-  function bind() {
-    document.getElementById('bottomNav').addEventListener('click',e=>{const b=e.target.closest('[data-nav]');if(!b)return;const nav=b.dataset.nav;if(nav==='company')return openCompany();if(nav==='activity')return openActivity();closeCompany(nav);if(nav==='today'){document.getElementById('todayModeBtn')?.click();document.getElementById('nextActions')?.scrollIntoView({behavior:'smooth',block:'start'})}if(nav==='tasks'){document.getElementById('allModeBtn')?.click();document.getElementById('taskRoot')?.scrollIntoView({behavior:'smooth',block:'start'})}});
-    document.getElementById('companyClose').onclick=()=>closeCompany('tasks');
-    document.getElementById('activityClose').onclick=()=>closeCompany('tasks');
-    document.getElementById('activityRefresh').onclick=async()=>{if(typeof loadSnapshot==='function')await loadSnapshot(true);renderActivityPage()};
-    document.getElementById('activityClearPage').onclick=()=>{const legacy=document.getElementById('clearActivityBtn');if(legacy)legacy.click();setTimeout(renderActivityPage,500)};
-    document.getElementById('activityFilters').onclick=e=>{const b=e.target.closest('[data-activity-filter]');if(!b)return;activityFilter=b.dataset.activityFilter;document.querySelectorAll('[data-activity-filter]').forEach(x=>x.classList.toggle('active',x===b));renderActivityPage()};
-    document.getElementById('companyTabs').onclick=e=>{const b=e.target.closest('[data-channel]');if(!b)return;activeChannel=b.dataset.channel;localStorage.setItem('ejaps_company_channel_v1',activeChannel);renderTabs();renderMessages()};
-    document.getElementById('companyComposer').onsubmit=async e=>{e.preventDefault();const input=document.getElementById('companyMessage'),text=input.value.trim();if(!text)return;try{if(await sendMessage(text)){input.value='';input.focus()}}catch(error){window.showToast?.(error.message||'Beskeden kunne ikke sendes')}};
-    document.getElementById('companyChat').onclick=async e=>{const button=e.target.closest('[data-msg-action]');if(!button)return;const row=button.closest('[data-message-id]'),id=row.dataset.messageId,msg=messages.find(m=>m.id===id);if(!msg)return;try{if(button.dataset.msgAction==='decision'){if(msg.channel==='Beslutninger')return window.showToast?.('Beskeden er allerede en beslutning');await sendMessage(msg.body,'Beslutninger',id);window.showToast?.('Gemt under Beslutninger')}if(button.dataset.msgAction==='task')openTaskDialog(id);if(button.dataset.msgAction==='delete'&&confirm('Slet beskeden?')){await deleteMessage(id);window.showToast?.('Beskeden er slettet')}}catch(error){window.showToast?.(error.message||'Handlingen kunne ikke gennemføres')}};
-    document.getElementById('messageTaskCancel').onclick=()=>{pendingMessageId='';document.getElementById('messageTaskDialog').close()};document.getElementById('messageTaskCreate').onclick=createTaskFromMessage;
-  }
-
-  document.addEventListener('DOMContentLoaded',()=>{buildUi();bind();loadMessages(false);if(location.hash.toLowerCase()==='#firma')openCompany();if(location.hash.toLowerCase()==='#aktivitet')openActivity();window.addEventListener('hashchange',()=>{if(location.hash.toLowerCase()==='#firma')openCompany();if(location.hash.toLowerCase()==='#aktivitet')openActivity()});setInterval(()=>{loadMessages(false);if(activityOpen)renderActivityPage()},5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden){loadMessages(false);if(activityOpen)renderActivityPage()}})});
+  document.addEventListener('DOMContentLoaded',()=>{buildUi();bind();loadMessages(false);setInterval(()=>{loadMessages(false);if(activityOpen)renderActivityPage()},5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden){loadMessages(false);if(activityOpen)renderActivityPage()}})});
 })();
