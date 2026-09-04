@@ -78,117 +78,43 @@
     document.getElementById('messageTaskCategory').innerHTML = CATEGORY_OPTIONS.map(c=>`<option>${esc(c)}</option>`).join('');
   }
 
-  function setNav(name) {
-    document.querySelectorAll('#bottomNav [data-nav]').forEach(b=>b.classList.toggle('active',b.dataset.nav===name));
-  }
-
-  function openCompany() {
-    panelOpen = true;
-    document.getElementById('companyPanel').hidden = false;
-    setNav('company');
-    clearUnread();
-    loadMessages(true);
-    setTimeout(()=>document.getElementById('companyMessage')?.focus(),100);
-  }
-
-  function closeCompany(nav='tasks') {
-    panelOpen = false;
-    document.getElementById('companyPanel').hidden = true;
-    setNav(nav);
-  }
-
-  function clearUnread() {
-    const badge=document.getElementById('companyUnread');
-    badge.hidden=true;badge.textContent='0';
-  }
-
-  function addUnread(count=1) {
-    if (panelOpen) return;
-    const badge=document.getElementById('companyUnread');
-    const next=Number(badge.textContent||0)+count;
-    badge.textContent=String(next);badge.hidden=false;
-  }
-
-  function renderTabs() {
-    document.querySelectorAll('.company-tab').forEach(b=>b.classList.toggle('active',b.dataset.channel===activeChannel));
-  }
+  function setNav(name) { document.querySelectorAll('#bottomNav [data-nav]').forEach(b=>b.classList.toggle('active',b.dataset.nav===name)); }
+  function openCompany() { panelOpen=true;document.getElementById('companyPanel').hidden=false;setNav('company');clearUnread();loadMessages(true);setTimeout(()=>document.getElementById('companyMessage')?.focus(),100); }
+  function closeCompany(nav='tasks') { panelOpen=false;document.getElementById('companyPanel').hidden=true;setNav(nav); }
+  function clearUnread() { const badge=document.getElementById('companyUnread');badge.hidden=true;badge.textContent='0'; }
+  function addUnread(count=1) { if(panelOpen)return;const badge=document.getElementById('companyUnread');const next=Number(badge.textContent||0)+count;badge.textContent=String(next);badge.hidden=false; }
+  function renderTabs() { document.querySelectorAll('.company-tab').forEach(b=>b.classList.toggle('active',b.dataset.channel===activeChannel)); }
 
   function renderMessages() {
     const host=document.getElementById('companyChat');
     const list=messages.filter(m=>m.channel===activeChannel);
     if(!list.length){host.innerHTML=`<div class="company-empty"><strong>Ingen beskeder i ${esc(activeChannel)} endnu.</strong><br>Skriv den første besked her.</div>`;return}
-    host.innerHTML=list.map(m=>{
-      const mine=m.author===actor();
-      return `<div class="message-row ${mine?'mine':''}" data-message-id="${m.id}"><div class="message-bubble"><div class="message-head"><strong>${esc(m.author)}</strong><span>${esc(fmt(m.created_at))}</span></div><div class="message-body">${esc(m.body)}</div>${m.task_id?'<span class="message-task-badge">✓ Opgave oprettet</span>':''}<div class="message-actions"><button type="button" class="decision" data-msg-action="decision">Gem som beslutning</button><button type="button" data-msg-action="task">Lav opgave</button>${mine?'<button type="button" class="danger" data-msg-action="delete">Slet</button>':''}</div></div></div>`
-    }).join('');
-    host.scrollTop=host.scrollHeight;
+    host.innerHTML=list.map(m=>{const mine=m.author===actor();return `<div class="message-row ${mine?'mine':''}" data-message-id="${m.id}"><div class="message-bubble"><div class="message-head"><strong>${esc(m.author)}</strong><span>${esc(fmt(m.created_at))}</span></div><div class="message-body">${esc(m.body)}</div>${m.task_id?'<span class="message-task-badge">✓ Opgave oprettet</span>':''}<div class="message-actions"><button type="button" class="decision" data-msg-action="decision">Gem som beslutning</button><button type="button" data-msg-action="task">Lav opgave</button>${mine?'<button type="button" class="danger" data-msg-action="delete">Slet</button>':''}</div></div></div>`}).join('');host.scrollTop=host.scrollHeight;
   }
 
   async function loadMessages(force=false) {
-    try {
-      const data=await rest(`company_messages?workspace_id=eq.${WORKSPACE_ID}&select=*&order=created_at.asc&limit=300`);
-      const incoming=Array.isArray(data)?data:[];
-      const newFromOther=firstLoad?[]:incoming.filter(m=>!seenIds.has(m.id)&&m.author!==actor());
-      messages=incoming;seenIds=new Set(messages.map(m=>m.id));
-      if(force||panelOpen) renderMessages();
-      if(newFromOther.length){addUnread(newFromOther.length);for(const m of newFromOther){window.showToast?.(`${m.author} skrev i Firma · ${m.channel}`);if(typeof systemNotification==='function')systemNotification(`${m.author} · Firma`,m.body.slice(0,140),`firmachat-${m.id}`)}}
-      firstLoad=false;
-    } catch(error) {
-      if(panelOpen) document.getElementById('companyChat').innerHTML=`<div class="company-empty"><strong>Firma-chat kunne ikke hentes.</strong><br>${esc(error.message)}</div>`;
-    }
+    try { const data=await rest(`company_messages?workspace_id=eq.${WORKSPACE_ID}&select=*&order=created_at.asc&limit=300`);const incoming=Array.isArray(data)?data:[];const newFromOther=firstLoad?[]:incoming.filter(m=>!seenIds.has(m.id)&&m.author!==actor());messages=incoming;seenIds=new Set(messages.map(m=>m.id));if(force||panelOpen)renderMessages();if(newFromOther.length){addUnread(newFromOther.length);for(const m of newFromOther){window.showToast?.(`${m.author} skrev i Firma · ${m.channel}`);if(typeof systemNotification==='function')systemNotification(`${m.author} · Firma`,m.body.slice(0,140),`firmachat-${m.id}`)}}firstLoad=false; } catch(error) { if(panelOpen)document.getElementById('companyChat').innerHTML=`<div class="company-empty"><strong>Firma-chat kunne ikke hentes.</strong><br>${esc(error.message)}</div>`; }
   }
 
-  async function sendMessage(text,channel=activeChannel,sourceId=null) {
-    if(!actor()){window.showToast?.('Vælg først Emil eller Jesper under Navn');return false}
-    const body={workspace_id:WORKSPACE_ID,channel,author:actor(),body:text};
-    if(sourceId)body.source_message_id=sourceId;
-    await rest('company_messages',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(body)});
-    await loadMessages(true);return true;
-  }
+  async function sendMessage(text,channel=activeChannel,sourceId=null) { if(!actor()){window.showToast?.('Vælg først Emil eller Jesper under Navn');return false}const body={workspace_id:WORKSPACE_ID,channel,author:actor(),body:text};if(sourceId)body.source_message_id=sourceId;await rest('company_messages',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(body)});await loadMessages(true);return true; }
+  async function deleteMessage(id) { await rest(`company_messages?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${WORKSPACE_ID}`,{method:'DELETE'});await loadMessages(true); }
 
-  async function deleteMessage(id) {
-    await rest(`company_messages?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${WORKSPACE_ID}`,{method:'DELETE'});
-    await loadMessages(true);
-  }
-
-  function openTaskDialog(id) {
-    const message=messages.find(m=>m.id===id);if(!message)return;
-    if(!actor()){window.showToast?.('Vælg først Navn');return}
-    pendingMessageId=id;
-    document.getElementById('messageTaskPreview').textContent=message.body;
-    document.getElementById('messageTaskOwner').value='Fælles';
-    document.getElementById('messageTaskPriority').value=message.channel==='Vigtigt'?'Høj':'Mellem';
-    document.getElementById('messageTaskDialog').showModal();
-  }
+  function openTaskDialog(id) { const message=messages.find(m=>m.id===id);if(!message)return;if(!actor()){window.showToast?.('Vælg først Navn');return}pendingMessageId=id;document.getElementById('messageTaskPreview').textContent=message.body;document.getElementById('messageTaskOwner').value='Fælles';document.getElementById('messageTaskPriority').value=message.channel==='Vigtigt'?'Høj':'Mellem';document.getElementById('messageTaskDialog').showModal(); }
 
   async function createTaskFromMessage() {
     const message=messages.find(m=>m.id===pendingMessageId);if(!message)return;
     const payload={title:message.body.slice(0,220),category:document.getElementById('messageTaskCategory').value,owner:document.getElementById('messageTaskOwner').value,priority:document.getElementById('messageTaskPriority').value,status:'Ikke startet',notes:`Oprettet fra Firma · ${message.channel} · ${message.author}`,actor:actor()};
-    try{
-      if(typeof request!=='function')throw new Error('Opgavefunktionen er ikke klar');
-      await request('tasks',{method:'POST',body:payload});
-      document.getElementById('messageTaskDialog').close();pendingMessageId='';
-      if(typeof loadSnapshot==='function')await loadSnapshot(true);
-      window.showToast?.('Beskeden er lavet til en opgave');
-    }catch(error){window.showToast?.(error.message||'Kunne ikke oprette opgaven')}
+    try{if(typeof request!=='function')throw new Error('Opgavefunktionen er ikke klar');await request('tasks',{method:'POST',body:payload});document.getElementById('messageTaskDialog').close();pendingMessageId='';if(typeof loadSnapshot==='function')await loadSnapshot(true);window.showToast?.('Beskeden er lavet til en opgave');}catch(error){window.showToast?.(error.message||'Kunne ikke oprette opgaven')}
   }
 
   function bind() {
-    document.getElementById('bottomNav').addEventListener('click',e=>{
-      const b=e.target.closest('[data-nav]');if(!b)return;const nav=b.dataset.nav;
-      if(nav==='company')return openCompany();
-      closeCompany(nav);
-      if(nav==='today'){document.getElementById('todayModeBtn')?.click();document.getElementById('nextActions')?.scrollIntoView({behavior:'smooth',block:'start'})}
-      if(nav==='tasks'){document.getElementById('allModeBtn')?.click();document.getElementById('taskRoot')?.scrollIntoView({behavior:'smooth',block:'start'})}
-      if(nav==='activity'){const log=document.getElementById('activityLog');const details=log?.closest('details');if(details)details.open=true;log?.scrollIntoView({behavior:'smooth',block:'center'})}
-    });
+    document.getElementById('bottomNav').addEventListener('click',e=>{const b=e.target.closest('[data-nav]');if(!b)return;const nav=b.dataset.nav;if(nav==='company')return openCompany();closeCompany(nav);if(nav==='today'){document.getElementById('todayModeBtn')?.click();document.getElementById('nextActions')?.scrollIntoView({behavior:'smooth',block:'start'})}if(nav==='tasks'){document.getElementById('allModeBtn')?.click();document.getElementById('taskRoot')?.scrollIntoView({behavior:'smooth',block:'start'})}if(nav==='activity'){const log=document.getElementById('activityLog');const details=log?.closest('details');if(details)details.open=true;log?.scrollIntoView({behavior:'smooth',block:'center'})}});
     document.getElementById('companyClose').onclick=()=>closeCompany('tasks');
     document.getElementById('companyTabs').onclick=e=>{const b=e.target.closest('[data-channel]');if(!b)return;activeChannel=b.dataset.channel;localStorage.setItem('ejaps_company_channel_v1',activeChannel);renderTabs();renderMessages()};
     document.getElementById('companyComposer').onsubmit=async e=>{e.preventDefault();const input=document.getElementById('companyMessage'),text=input.value.trim();if(!text)return;try{if(await sendMessage(text)){input.value='';input.focus()}}catch(error){window.showToast?.(error.message||'Beskeden kunne ikke sendes')}};
     document.getElementById('companyChat').onclick=async e=>{const button=e.target.closest('[data-msg-action]');if(!button)return;const row=button.closest('[data-message-id]'),id=row.dataset.messageId,msg=messages.find(m=>m.id===id);if(!msg)return;try{if(button.dataset.msgAction==='decision'){if(msg.channel==='Beslutninger')return window.showToast?.('Beskeden er allerede en beslutning');await sendMessage(msg.body,'Beslutninger',id);window.showToast?.('Gemt under Beslutninger')}if(button.dataset.msgAction==='task')openTaskDialog(id);if(button.dataset.msgAction==='delete'&&confirm('Slet beskeden?')){await deleteMessage(id);window.showToast?.('Beskeden er slettet')}}catch(error){window.showToast?.(error.message||'Handlingen kunne ikke gennemføres')}};
-    document.getElementById('messageTaskCancel').onclick=()=>{pendingMessageId='';document.getElementById('messageTaskDialog').close()};
-    document.getElementById('messageTaskCreate').onclick=createTaskFromMessage;
+    document.getElementById('messageTaskCancel').onclick=()=>{pendingMessageId='';document.getElementById('messageTaskDialog').close()};document.getElementById('messageTaskCreate').onclick=createTaskFromMessage;
   }
 
-  document.addEventListener('DOMContentLoaded',()=>{buildUi();bind();loadMessages(false);setInterval(()=>loadMessages(false),5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadMessages(false)})});
+  document.addEventListener('DOMContentLoaded',()=>{buildUi();bind();loadMessages(false);if(location.hash.toLowerCase()==='#firma')openCompany();window.addEventListener('hashchange',()=>{if(location.hash.toLowerCase()==='#firma')openCompany()});setInterval(()=>loadMessages(false),5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadMessages(false)})});
 })();
